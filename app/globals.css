@@ -48,15 +48,15 @@
   --radius: 0.625rem;
   --background: #f9fafb; 
   --foreground: #f9fafb;
-  --card: #154238;
+  --card: #006834;
   --card-foreground: #f9fafb;
-  --popover: #154238;
+  --popover: #006834;
   --popover-foreground: #f9fafb;
   --primary: #76b900; /* Your nbsLightGreen for highlights */
   --primary-foreground: #f9fafb;
-  --secondary: #154238;
+  --secondary: #006834;
   --secondary-foreground: #f9fafb;
-  --muted: #154238;
+  --muted: #006834;
   --muted-foreground: #f9fafb;
   --accent: #76b900; /* Your nbsLightGreen for hover/active states */
   --accent-foreground: #f9fafb;
@@ -69,13 +69,13 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #154238;
+  --sidebar: #006834;
   --sidebar-foreground: #f9fafb;
   --sidebar-primary: #76b900;
   --sidebar-primary-foreground: #f9fafb;
   --sidebar-accent: #76b900;
   --sidebar-accent-foreground: #f9fafb;
-  --sidebar-border: #154238;
+  --sidebar-border: #006834;
   --sidebar-ring: #76b900;
 
 }

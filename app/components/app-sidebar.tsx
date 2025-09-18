@@ -32,11 +32,14 @@ export function AppSidebar() {
     <Sidebar >
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel >
-            Application
+          <SidebarGroupLabel className="space-x-2 " >
+           <img src="/nbs-logo.png" alt="NBS Logo" className="w-12 h-12  my-4"/>
+            <h1 className={`text-xl font-bold text-center ${nbsLightGreenText}`}>
+              Reconciliation
+            </h1>
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="mt-5">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
