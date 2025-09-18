@@ -170,7 +170,7 @@ export default function ReconciliationPage() {
         </div>
 
         {/* Reconcile Action */}
-        <div className="mt-12 flex justify-center">
+        <div className="mt-12 flex justify-start">
           <Button
             size="lg"
             disabled={!allUploaded}

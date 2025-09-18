@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         
             <div className="flex w-full h-screen">
                 <AppSidebar />
-                    <SidebarTrigger className="text-accent"/>
+                    <SidebarTrigger className="text-accent mt-4"/>
                     <main className="w-full container mx-auto p-4">                        
                         {children}
                     </main>
