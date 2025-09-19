@@ -83,7 +83,7 @@ export async function uploadAcquirerFile(file: File) {
   const res = await fetch(`${API_BASE}/upload/acquirer`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${token}`, // 🔑 include JWT
+      "Authorization": `Bearer ${token}`, //  include JWT
     },
     body: formData,
   });
@@ -93,4 +93,49 @@ export async function uploadAcquirerFile(file: File) {
     throw new Error(error.message || "Acquirer file upload failed");
   }
   return res.json();
+}
+
+export interface ReconSummary {
+  totalTransactions: number;
+  matched: number;
+  unmatched: number;
+
+}
+
+
+export interface ReconcileResponse {
+  message: string;
+  status: "success" | "error";
+  summary?: ReconSummary;
+}
+
+export async function reconcile() : Promise<ReconcileResponse> {
+ try {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/reconcile`, {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`, // 🔑 include JWT
+      },
+    });
+
+    const data: ReconcileResponse = await res.json();
+
+    console.log("Reconcile response data:", data);
+
+    if (!res.ok) {
+      // Handle server-side error
+      throw new Error(data.message || "Failed to reconcile transactions");
+    }
+
+    return data;
+  } catch (error: any) {
+    // Handle network or other errors
+    return {
+      message: error.message || "Unknown error",
+      status: "error",
+    };
+  }
 }

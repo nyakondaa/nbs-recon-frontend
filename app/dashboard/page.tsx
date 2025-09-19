@@ -5,12 +5,14 @@ import { useState, DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, RefreshCw } from "lucide-react";
 import { uploadAcquirerFile, uploadHostFile, uploadIssuerFile } from "../services/api";
+import { reconcile, ReconcileResponse } from "../services/api";
 
 export default function ReconciliationPage() {
   const [hostFile, setHostFile] = useState<File | null>(null);
   const [issuerFile, setIssuerFile] = useState<File | null>(null);
   const [acquirerFile, setAcquirerFile] = useState<File | null>(null);
-
+  const [isloading, setIsLoading] = useState(false);
+ const [result, setResult] = useState<ReconcileResponse | null>(null);
   const [dragActive, setDragActive] = useState<string | null>(null);
 
   const handleFileChange = (
@@ -77,6 +79,13 @@ export default function ReconciliationPage() {
   }
 }
 
+  const handleReconcile = async () => {
+    console.log("Starting reconciliation process...");
+    setIsLoading(true);
+    const response = await reconcile();
+    setResult(response);
+    setIsLoading(false);
+  }
 
   const allUploaded = hostFile && issuerFile && acquirerFile;
 
@@ -224,16 +233,39 @@ export default function ReconciliationPage() {
             <Upload className="mr-2 h-5 w-5" />
             Upload files
           </Button>
-          <Button
-            size="lg"
-            disabled={!allUploaded}
-            className="px-10 py-6 text-lg bg-green-700 hover:bg-green-800"
-          >
-            <RefreshCw className="mr-2 h-5 w-5" />
-            Reconcile
-          </Button>
+         <Button
+          size="lg"
+          disabled={!allUploaded || isloading}
+          onClick={handleReconcile} // <-- connect the function
+          className="px-10 py-6 text-lg bg-green-700 hover:bg-green-800"
+        >
+          <RefreshCw className="mr-2 h-5 w-5" />
+          {isloading ? "Reconciling..." : "Reconcile"}
+        </Button>
+
           
         </div>
+
+
+        {/* Result Section */}
+        {result && (
+  <div className="mt-6 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
+    <p
+      className={`font-medium mb-2 ${
+        result.status === "success" ? "text-green-600" : "text-red-600"
+      }`}
+    >
+      {result.message}
+    </p>
+    {result.summary && (
+      <pre className="text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
+        {JSON.stringify(result.summary, null, 2)}
+      </pre>
+    )}
+  </div>
+)}
+
+
       </div>
 
   );
