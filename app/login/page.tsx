@@ -2,11 +2,14 @@
 import { useState } from "react";
 import { login } from "@/app/services/api";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,6 +19,7 @@ export default function LoginPage() {
       setMessage(`✅ Login successful! Welcome, ${username}`);
       console.log("Login response:", res);
       localStorage.setItem("token", res.token);
+      router.push("/dashboard");
     } catch (err: any) {
       setMessage("❌ Invalid credentials");
     }

@@ -4,6 +4,7 @@
 import { useState, DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, RefreshCw } from "lucide-react";
+import { uploadAcquirerFile, uploadHostFile, uploadIssuerFile } from "../services/api";
 
 export default function ReconciliationPage() {
   const [hostFile, setHostFile] = useState<File | null>(null);
@@ -33,6 +34,49 @@ export default function ReconciliationPage() {
       setter(e.dataTransfer.files[0]);
     }
   };
+
+  const handleUpload = async (host: File, issuer: File, acquirer: File) => {
+
+    try {
+      const [hostRes, issuerRes, acquirerRes] = await Promise.all([
+      uploadHostFile(host),
+      uploadIssuerFile(issuer),
+      uploadAcquirerFile(acquirer),
+    ]);
+
+    return {
+      host: hostRes,
+      issuer: issuerRes,
+      acquirer: acquirerRes,
+      message: "All files uploaded successfully",
+      status: "success",
+    };
+
+    }catch(err:any){
+      return {
+      message: err.message || "Error uploading one or more files",
+      status: "error",
+    };
+    }
+
+  }
+
+  async function submitFiles() {
+  if (!hostFile || !issuerFile || !acquirerFile) {
+    alert("Please select all files before uploading");
+    return;
+  }
+
+  const result = await handleUpload(hostFile, issuerFile, acquirerFile);
+
+  console.log(result);
+  if (result.status === "success") {
+    alert("All files uploaded!");
+  } else {
+    alert(result.message);
+  }
+}
+
 
   const allUploaded = hostFile && issuerFile && acquirerFile;
 
@@ -170,7 +214,16 @@ export default function ReconciliationPage() {
         </div>
 
         {/* Reconcile Action */}
-        <div className="mt-12 flex justify-start">
+        <div className="mt-12 flex justify-start space-x-5">
+           <Button
+           onClick={submitFiles}
+            size="lg"
+            disabled={!allUploaded}
+            className="px-10 py-6 text-lg bg-green-700 hover:bg-green-800"
+          >
+            <Upload className="mr-2 h-5 w-5" />
+            Upload files
+          </Button>
           <Button
             size="lg"
             disabled={!allUploaded}
@@ -179,6 +232,7 @@ export default function ReconciliationPage() {
             <RefreshCw className="mr-2 h-5 w-5" />
             Reconcile
           </Button>
+          
         </div>
       </div>
 
