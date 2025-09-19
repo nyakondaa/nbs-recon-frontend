@@ -39,7 +39,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="mt-5 items-center" >
-           <img src="/nbs-logo.png" alt="NBS Logo" className="w-24 h-24  my-4"/>
+           <img src="/nbs-logo.png" alt="NBS Logo" className="w-16 h-16  my-4"/>
             <h1 className={`text-xl font-bold text-center mt-2 ${nbsLightGreenText}`}>
               Reconciliation
             </h1>

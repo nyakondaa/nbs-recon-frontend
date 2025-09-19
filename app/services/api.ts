@@ -1,3 +1,5 @@
+import Cookies from "js-cookie";
+
 const API_BASE = "http://localhost:1977/api/transactions"; // adjust if needed
 
 export async function signup(username: string, email: string, password: string) {
@@ -18,6 +20,7 @@ export async function login(username: string, password: string) {
   const res = await fetch("http://localhost:1977/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ username, password }),
   });
 
@@ -29,7 +32,7 @@ export async function login(username: string, password: string) {
 }
 
 function getToken() {
-  return localStorage.getItem("token");
+  return  Cookies.get("auth_token") || "";
 }
 
 // Upload FE (Host) file

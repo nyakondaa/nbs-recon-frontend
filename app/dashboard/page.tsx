@@ -12,6 +12,7 @@ export default function ReconciliationPage() {
   const [issuerFile, setIssuerFile] = useState<File | null>(null);
   const [acquirerFile, setAcquirerFile] = useState<File | null>(null);
   const [isloading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
  const [result, setResult] = useState<ReconcileResponse | null>(null);
   const [dragActive, setDragActive] = useState<string | null>(null);
 
@@ -227,11 +228,11 @@ export default function ReconciliationPage() {
            <Button
            onClick={submitFiles}
             size="lg"
-            disabled={!allUploaded}
+            disabled={!allUploaded || isUploading}  
             className="px-10 py-6 text-lg bg-green-700 hover:bg-green-800"
           >
             <Upload className="mr-2 h-5 w-5" />
-            Upload files
+            {isUploading ? "Uploading..." : "Upload Files"}
           </Button>
          <Button
           size="lg"

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { login, reconcile } from "@/app/services/api";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-
+import jscookie from "js-cookie";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -16,10 +16,9 @@ export default function LoginPage() {
     e.preventDefault();
     try {
         console.log("Attempting login with:", { username, password });
-      const res = await login(username, password);
-      setMessage(`✅ Login successful! Welcome, ${username}`);
-      console.log("Login response:", res);
-      localStorage.setItem("token", res.token);
+        await login(username, password);
+        setMessage(`✅ Login successful! Welcome, ${username}`);   
+
       router.push("/dashboard");
     } catch (err: any) {
       setMessage("❌ Invalid credentials");
