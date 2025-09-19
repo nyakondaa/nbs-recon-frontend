@@ -4,41 +4,39 @@ import * as jose from "jose";
 
 const PUBLIC_PATHS = ["/login", "/register", "/public"];
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("auth_token")?.value;
 
   console.log("Middleware is running...");
   console.log(`Checking path: ${pathname}`);
-  console.log(`Token found: ${!!token}`); // Logs 'true' or 'false'
+  console.log(`Token found: ${!!token}`);
 
-  // 1. If the user is on a public path, let them continue.
+  // Allow public paths
   if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 
-  // 2. If there's no token, redirect to the login page.
+  // If no token, redirect
   if (!token) {
     console.log("No token found. Redirecting to /login.");
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 3. If a token exists, verify it to ensure it's valid.
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    jose.jwtVerify(token, secret);
-    // If verification succeeds, continue to the requested page.
+    await jose.jwtVerify(token, secret); // ✅ await is required
     console.log("Token is valid. Continuing to page.");
     return NextResponse.next();
-  } catch (err) {
-    // 4. If verification fails, it means the token is invalid, so redirect to login.
-    console.error("JWT verification failed:", err);
-    console.log("Redirecting to /login due to invalid token.");
-    return NextResponse.redirect(new URL("/login", req.url));
+  } catch (err: any) {
+    console.error("JWT verification failed:", err.name, err.message);
+    // Clear cookie if token is expired or invalid
+    const res = NextResponse.redirect(new URL("/login", req.url));
+    res.cookies.set("auth_token", "", { maxAge: 0 });
+    return res;
   }
 }
 
 export const config = {
-  // The middleware will only run for these paths.
   matcher: ["/dashboard/:path*", "/profile/:path*", "/api/protected/:path*"],
 };
