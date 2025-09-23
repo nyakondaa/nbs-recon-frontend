@@ -1,6 +1,6 @@
 import Cookies from "js-cookie";
 
-const API_BASE = "http://localhost:1977/api/transactions"; // adjust if needed
+const API_BASE = "http://localhost:1977/api/transactions"; 
 
 export async function signup(username: string, email: string, password: string) {
   const res = await fetch("http://localhost:1977/api/auth/signup", {
@@ -46,6 +46,7 @@ export async function uploadHostFile(file: File) {
     headers: {
       "Authorization": `Bearer ${token}`, // 🔑 include JWT
     },
+    credentials: "include",
     body: formData,
   });
 
@@ -67,6 +68,7 @@ export async function uploadIssuerFile(file: File) {
     headers: {
       "Authorization": `Bearer ${token}`, // 🔑 include JWT
     },
+    credentials: "include",
     body: formData,
   });
 
@@ -88,6 +90,7 @@ export async function uploadAcquirerFile(file: File) {
     headers: {
       "Authorization": `Bearer ${token}`, //  include JWT
     },
+    credentials: "include",
     body: formData,
   });
 
@@ -122,6 +125,7 @@ export async function reconcile() : Promise<ReconcileResponse> {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`, // 🔑 include JWT
       },
+      credentials: "include",
     });
 
     const data: ReconcileResponse = await res.json();
@@ -139,6 +143,85 @@ export async function reconcile() : Promise<ReconcileResponse> {
     return {
       message: error.message || "Unknown error",
       status: "error",
+    };
+  }
+}
+
+// Download reconciled transactions CSV
+export async function downloadCSV() {
+  try {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/download`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      // Try to read JSON error message
+      const error = await res.json().catch(() => null);
+      throw new Error(error?.message || "Failed to download CSV");
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "transaction-reconciliation.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error("CSV download error:", error);
+    throw new Error(error.message || "Unknown error during CSV download");
+  }
+}
+
+// Add this to api.ts
+
+export interface FETransaction {
+  id: number;
+  rrn: string;
+  amount: number;
+  financialRequestReceived: boolean;
+  authorisedOnZS: boolean;
+  reversalProcessed: boolean;
+  
+}
+
+export interface ViewReconciledResponse {
+  status: "success" | "error";
+  matched?: FETransaction[];
+  unmatched?: FETransaction[];
+  autoReversals?: FETransaction[];
+  message?: string;
+}
+
+export async function viewReconciled(): Promise<ViewReconciledResponse> {
+  try {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/view`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`, // include JWT
+      },
+      credentials: "include",
+    });
+
+    const data: ViewReconciledResponse = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to fetch reconciled transactions");
+    }
+
+    return data;
+  } catch (error: any) {
+    return {
+      status: "error",
+      message: error.message || "Unknown error fetching reconciled transactions",
     };
   }
 }
