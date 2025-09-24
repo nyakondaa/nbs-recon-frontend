@@ -37,6 +37,7 @@ function getToken() {
 
 // Upload FE (Host) file
 export async function uploadHostFile(file: File) {
+  try{
   const token = getToken();
   const formData = new FormData();
   formData.append("file", file);
@@ -55,11 +56,16 @@ export async function uploadHostFile(file: File) {
     throw new Error(error.message || "Host file upload failed");
   }
   return res.json();
+}  catch (err){
+    console.log(err);
+      throw new Error(`Host file upload failed: ${err.message}`);
+  }
 }
 
 // Upload Issuer file
 export async function uploadIssuerFile(file: File) {
-  const token = getToken();
+  try{
+     const token = getToken();
   const formData = new FormData();
   formData.append("issuerFile", file);
 
@@ -77,11 +83,18 @@ export async function uploadIssuerFile(file: File) {
     throw new Error(error.message || "Issuer file upload failed");
   }
   return res.json();
+
+  }catch (err){
+    console.log(err);
+      throw new Error(`Issuer file upload failed: ${err.message}`);
+  }
+ 
 }
 
 // Upload Acquirer file
 export async function uploadAcquirerFile(file: File) {
-  const token = getToken();
+  try{
+    const token = getToken();
   const formData = new FormData();
   formData.append("acquirerFile", file);
 
@@ -99,6 +112,10 @@ export async function uploadAcquirerFile(file: File) {
     throw new Error(error.message || "Acquirer file upload failed");
   }
   return res.json();
+  }catch(err){
+    console.log(err);
+    throw new Error(`Acquirer file upload failed: ${err.message}`);
+  }
 }
 
 export interface ReconSummary {
@@ -183,13 +200,14 @@ export async function downloadCSV() {
 // Add this to api.ts
 
 export interface FETransaction {
-  id: number;
+  terminalId: string;
   rrn: string;
   amount: number;
   financialRequestReceived: boolean;
   authorisedOnZS: boolean;
   reversalProcessed: boolean;
-  
+  postingDate: string; // ISO date string
+
 }
 
 export interface ViewReconciledResponse {
@@ -206,22 +224,38 @@ export async function viewReconciled(): Promise<ViewReconciledResponse> {
     const res = await fetch(`${API_BASE}/view`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${token}`, // include JWT
+        "Authorization": `Bearer ${token}`,
       },
       credentials: "include",
     });
 
-    const data: ViewReconciledResponse = await res.json();
+    // 💡 Always parse the JSON data, regardless of the status code.
+    const data: ViewReconciledResponse = await res.json(); 
+    console.log(`here is the data from view reconciled:`, data);
+  
 
+    // ✅ Now, check for the 'ok' status to handle success or error.
     if (!res.ok) {
+      // If the response is not OK (e.g., 400 Bad Request),
+      // the 'data' variable will contain the error message from the backend.
       throw new Error(data.message || "Failed to fetch reconciled transactions");
     }
 
-    return data;
+    // ✅ If the response is OK, return the parsed data.
+    return {
+      ...data,
+      matched: data.matched ?? [],
+      unmatched: data.unmatched ?? [],
+      autoReversals: data.autoReversals ?? [],
+    };
   } catch (error: any) {
     return {
       status: "error",
       message: error.message || "Unknown error fetching reconciled transactions",
+      matched: [],
+      unmatched: [],
+      autoReversals: [],
     };
   }
 }
+

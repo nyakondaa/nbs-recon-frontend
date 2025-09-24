@@ -100,6 +100,10 @@ export default function ReconciliationPage() {
     }
   };
 
+  // Define the columns you want to display
+const columnsToDisplay: (keyof FETransaction)[] = ["terminalId", "rrn", "amount", "postingDate", ];
+
+
   const displayedData = getDataForView();
 
   return (
@@ -122,11 +126,9 @@ export default function ReconciliationPage() {
       {/* Action Buttons */}
       <div className="mt-12 flex flex-wrap gap-4">
         <Button onClick={submitFiles} size="lg" disabled={!allUploaded || isUploading} className="px-10 py-6 text-lg bg-green-700 hover:bg-accent">
-          <Upload className="mr-2 h-5 w-5" /> {isUploading ? "Uploading..." : "Upload Files"}
+          <Upload className="mr-2 h-5 w-5" /> {isUploading ? "reconciling please wait..." : "reconcile"}
         </Button>
-        <Button onClick={handleReconcile} size="lg" disabled={!allUploaded || isLoading} className="px-10 py-6 text-lg bg-green-700 hover:bg-accent">
-          <RefreshCw className="mr-2 h-5 w-5" /> {isLoading ? "Reconciling..." : "Reconcile"}
-        </Button>
+    
         <Button onClick={handleViewData} size="lg" disabled={isLoading} className="px-10 py-6 text-lg bg-blue-700 hover:bg-blue-800">
           <Eye className="mr-2 h-5 w-5" /> {isLoading ? "Loading..." : "View Data"}
         </Button>
@@ -141,30 +143,42 @@ export default function ReconciliationPage() {
             <Button variant={viewType === "autoReversals" ? "default" : "outline"} onClick={() => setViewType("autoReversals")}>Auto Reversals</Button>
           </div>
 
-          {displayedData.length > 0 ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full border border-gray-300 dark:border-gray-700">
-                <thead className="bg-gray-100 dark:bg-gray-700">
-                  <tr>
-                    {Object.keys(displayedData[0]).map((key) => (
-                      <th key={key} className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">{key}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedData.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"}>
-                      {Object.values(row).map((value, i) => (
-                        <td key={i} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200">{value.toString()}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="mt-4 text-gray-500 dark:text-gray-400">No {viewType} transactions to display.</p>
-          )}
+                            {displayedData.length > 0 ? (
+  <div className="mt-4 overflow-x-auto">
+    <table className="min-w-full border border-gray-300 dark:border-gray-700">
+      <thead className="bg-gray-100 dark:bg-gray-700">
+        <tr>
+          {columnsToDisplay.map((key) => (
+            <th
+              key={key}
+              className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200"
+            >
+              {key}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {displayedData.map((row, idx) => (
+          <tr
+            key={idx}
+            className={idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"}
+          >
+          {columnsToDisplay.map((key) => (
+  <td key={key} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
+    {row[key]?.toString() || ""}
+  </td>
+))}
+
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+) : (
+  <p className="mt-4 text-gray-500 dark:text-gray-400">No {viewType} transactions to display.</p>
+)}
+
         </div>
       )}
     </div>
