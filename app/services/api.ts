@@ -215,13 +215,19 @@ export interface ViewReconciledResponse {
   matched?: FETransaction[];
   unmatched?: FETransaction[];
   autoReversals?: FETransaction[];
+  matchedTotal?: number;
+  unmatchedTotal?: number;
+  autoReversalsTotal?: number;
   message?: string;
 }
 
-export async function viewReconciled(): Promise<ViewReconciledResponse> {
+export async function viewReconciled(
+  page: number = 0,
+  size: number = 50
+): Promise<ViewReconciledResponse> {
   try {
     const token = getToken();
-    const res = await fetch(`${API_BASE}/view`, {
+    const res = await fetch(`${API_BASE}/view?page=${page}&size=${size}`, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${token}`,
@@ -229,25 +235,13 @@ export async function viewReconciled(): Promise<ViewReconciledResponse> {
       credentials: "include",
     });
 
-    // 💡 Always parse the JSON data, regardless of the status code.
-    const data: ViewReconciledResponse = await res.json(); 
-    console.log(`here is the data from view reconciled:`, data);
-  
+    const data: ViewReconciledResponse = await res.json();
 
-    // ✅ Now, check for the 'ok' status to handle success or error.
     if (!res.ok) {
-      // If the response is not OK (e.g., 400 Bad Request),
-      // the 'data' variable will contain the error message from the backend.
       throw new Error(data.message || "Failed to fetch reconciled transactions");
     }
 
-    // ✅ If the response is OK, return the parsed data.
-    return {
-      ...data,
-      matched: data.matched ?? [],
-      unmatched: data.unmatched ?? [],
-      autoReversals: data.autoReversals ?? [],
-    };
+    return data;
   } catch (error: any) {
     return {
       status: "error",
@@ -255,6 +249,9 @@ export async function viewReconciled(): Promise<ViewReconciledResponse> {
       matched: [],
       unmatched: [],
       autoReversals: [],
+      matchedTotal: 0,
+      unmatchedTotal: 0,
+      autoReversalsTotal: 0,
     };
   }
 }
