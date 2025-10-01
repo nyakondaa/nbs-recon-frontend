@@ -25,7 +25,7 @@ const items = [
   { title: "Home", url: "/dashboard", icon: Home },
   { title: "Reports", url: "/dashboard/reports", icon: Inbox }, 
   { title: "Search", url: "/main/search", icon: Search },
-  { title: "Settings", url: "/dashboards/settings", icon: Settings },
+  { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
 

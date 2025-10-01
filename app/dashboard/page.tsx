@@ -196,7 +196,7 @@ export default function ReconciliationPage() {
           size="lg"
           disabled={isLoading}
           aria-busy={isLoading}
-          className="px-10 py-6 text-lg bg-accent hover:bg-green-800 disabled:opacity-70"
+          className="px-10 py-6 text-lg bg-green-800 hover:bg-accent disabled:opacity-70"
         >
           {isLoading ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" />
