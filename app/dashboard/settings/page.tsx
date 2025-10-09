@@ -1,35 +1,12 @@
 'use client'
-import React, { use, useState } from 'react'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Pencil } from 'lucide-react'
 import CreateUserModal from '@/app/components/createNewuserModal'
 import { CreateUser, user, fetchUsers } from '@/app/services/api'
 
-const MOCK_USERS = [
-  {
-    id: 1,
-    name: 'Ethan Harper',
-    email: 'ethan.harper@example.com',
-    role: 'Admin',
-    status: 'Active',
-    avatarUrl: 'https://placehold.co/40x40/e0f2f1/004d40?text=EH', // Placeholder URL
-  },
-  {
-    id: 2,
-    name: 'Olivia Bennett',
-    email: 'olivia.bennett@example.com',
-    role: 'Editor',
-    status: 'Active',
-    avatarUrl: 'https://placehold.co/40x40/ffe0b2/e65100?text=OB', // Placeholder URL
-  },
-  {
-    id: 3,
-    name: 'Liam Carter',
-    email: 'liam.carter@example.com',
-    role: 'Viewer',
-    status: 'Inactive',
-    avatarUrl: 'https://placehold.co/40x40/cfd8dc/263238?text=LC', // Placeholder URL
-  },
-]
+// Fixed fetchUsers function - remove try/catch to let React Query handle errors
+
 
 const StatusBadge = ({ status }) => {
   const isActive = status === 'Active'
@@ -129,63 +106,87 @@ const UserRow = ({ user }) => {
 
 // Main Application Component
 const App = () => {
-  // In a real Next.js app, you'd fetch this data via getServerSideProps or a useQuery hook.
-  // Here, we use local state initialized with the mock data.
-  const [users, setUsers] = useState(MOCK_USERS)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  // React Query for fetching users
+  const { 
+    data: users = [], 
+    isLoading, 
+    error,
+    isError,
+    refetch 
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2,
+  })
+
+  // React Query mutation for creating a user
+  const createUserMutation = useMutation({
+    mutationFn: CreateUser,
+    onSuccess: (createdUser) => {
+      // Invalidate and refetch users query to update the list
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      
+      console.log('✅ User created successfully:', createdUser)
+      setIsModalOpen(false)
+    },
+    onError: (error: any) => {
+      console.error('❌ Error creating user:', error)
+      alert('Error creating user: ' + error.message)
+    }
+  })
 
   const handleCreateUser = async (newUser: user) => {
     try {
       console.log('🎯 handleCreateUser called with:', newUser)
-
-      // Remove the .ok check - the CreateUser function already handles errors
-      const createdUser = await CreateUser(newUser)
-
-
-      console.log('✅ User created successfully:', createdUser)
-
-      
-      setUsers((prev) => [
-        ...prev,
-        {
-          id: createdUser.id, // Use the actual ID from response
-          name: createdUser.username,
-          email: createdUser.email,
-          role: createdUser.roleName, // Or createdUser.roleName if backend returns it
-          status: 'Active',
-          avatarUrl: `https://placehold.co/40x40/e0f2f1/004d40?text=${createdUser.username.charAt(0).toUpperCase()}`,
-        },
-      ])
-
-      setIsModalOpen(false)
-    } catch (error: any) {
-      console.error('❌ Error creating user:', error)
-      alert('Error creating user: ' + error.message)
+      await createUserMutation.mutateAsync(newUser)
+    } catch (error) {
+      // Error is handled in onError callback
+      console.error('Mutation error:', error)
     }
   }
 
-  useState(() => {
-    const loadUsers = async () => {
-      try {
-        const fetchedUsers = await fetchUsers()
-        console.log('Fetched users:', fetchedUsers)
-        setUsers(
-          fetchedUsers.map((u) => ({
-            id: u.id,
-            name: u.username,
-            email: u.email,
-            role: u.roleName,
-            status: 'Active', // Assuming all fetched users are active
-            avatarUrl: `https://placehold.co/40x40/e0f2f1/004d40?text=${u.username.charAt(0).toUpperCase()}`,
-          }))
-        )
-      } catch (error) {
-        console.error('Error fetching users:', error)
-      }
-    }
+  // Transform the API response to match the frontend format
+  const transformedUsers = users.map((u) => ({
+    id: u.id,
+    name: u.username,
+    email: u.email,
+    role: u.roleName,
+    status: 'Active', // Assuming all fetched users are active
+    avatarUrl: `https://placehold.co/40x40/e0f2f1/004d40?text=${u.username?.charAt(0)?.toUpperCase() || 'U'}`,
+  }))
 
-    loadUsers()
-  }, [])
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-['Inter',_sans-serif] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading users...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-['Inter',_sans-serif] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Users</h2>
+          <p className="text-gray-600 mb-4">{error?.message || 'Failed to load users'}</p>
+          <button 
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-['Inter',_sans-serif]">
@@ -200,13 +201,14 @@ const App = () => {
 
         {/* Add New User Button */}
         <button
-          onClick={() =>
-            isModalOpen ? setIsModalOpen(false) : setIsModalOpen(true)
-          }
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 transition duration-200 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50"
+          onClick={() => setIsModalOpen(true)}
+          disabled={createUserMutation.isPending}
+          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 transition duration-200 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="h-5 w-5" />
-          <span>Add New User</span>
+          <span>
+            {createUserMutation.isPending ? 'Creating...' : 'Add New User'}
+          </span>
         </button>
       </header>
 
@@ -217,6 +219,9 @@ const App = () => {
           <h2 className="text-xl font-semibold text-gray-900">
             User Management
           </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {transformedUsers.length} user{transformedUsers.length !== 1 ? 's' : ''} found
+          </p>
         </div>
 
         {/* Table Header (Responsive Grid) */}
@@ -230,13 +235,13 @@ const App = () => {
 
         {/* Table Body */}
         <div className="divide-y divide-gray-100">
-          {users.map((user) => (
+          {transformedUsers.map((user) => (
             <UserRow key={user.id} user={user} />
           ))}
         </div>
 
         {/* Fallback for empty data */}
-        {users.length === 0 && (
+        {transformedUsers.length === 0 && (
           <div className="p-6 text-center text-gray-500">
             No users found. Click "Add New User" to get started.
           </div>
@@ -247,6 +252,7 @@ const App = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateUser}
+        isLoading={createUserMutation.isPending}
       />
     </div>
   )

@@ -3,28 +3,31 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "../components/app-sidebar";
 import { Navbar } from "../components/app-navbar";
+import { DashboardClientProvider } from "./DashboardClient"; // Adjust path as needed
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider>
-      <div className="flex w-full h-screen">
-        <AppSidebar />
-        
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Navbar at the top */}
-          <Navbar>
-            <SidebarTrigger className="text-accent mb-4" />
-          </Navbar>
+    <DashboardClientProvider>
+      <SidebarProvider>
+        <div className="flex w-full h-screen">
+          <AppSidebar />
           
-          {/* Main content with sidebar trigger */}
-          <main className="flex-1 overflow-auto p-6">
-            <div className="container mx-auto">
-              {children}
-            </div>
-          </main>
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col">
+            {/* Navbar at the top */}
+            <Navbar>
+              <SidebarTrigger className="text-accent mb-4" />
+            </Navbar>
+            
+            {/* Main content with sidebar trigger */}
+            <main className="flex-1 overflow-auto p-6">
+              <div className="container mx-auto">
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </DashboardClientProvider>
   );
 }
