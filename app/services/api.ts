@@ -27,7 +27,7 @@ async function refreshToken(): Promise<string> {
   try {
     const res = await fetch(`${AUTH_API_BASE}/refresh`, {
       method: 'POST',
-      credentials: 'include', // must send HttpOnly refresh cookie
+      credentials: 'include', 
     })
 
     if (!res.ok) {
@@ -112,18 +112,28 @@ export async function apiClient<T>(
   }
 
   if (!response.ok) {
-    const text = await response.text()
-    let msg = `API call failed with status ${response.status}`
-    try {
-      const json = JSON.parse(text)
-      msg += `: ${json.error || json.message || 'Unknown error'}`
-    } catch {
-      msg += `: ${text || 'Unknown error'}`
-    }
-    throw new Error(msg)
+  const text = await response.text()
+  let msg = `API call failed with status ${response.status}`
+  try {
+    const json = JSON.parse(text)
+    msg += `: ${json.error || json.message || 'Unknown error'}`
+  } catch {
+    msg += `: ${text || 'Unknown error'}`
   }
+  throw new Error(msg)
+}
 
-  return response.json()
+
+const contentType = response.headers.get("content-type") || ""
+if (response.status === 204 || !contentType.includes("application/json")) {
+  return null as T
+}
+
+
+const text = await response.text()
+if (!text) return null as T
+return JSON.parse(text)
+
 }
 
 export async function login(
@@ -161,26 +171,26 @@ export async function logout() {
 }
 
 
-// --- TRANSACTION-RELATED FUNCTIONS (Simplified Token Handling) ---
+
 
 // Upload FE (Host) file
 export async function uploadHostFile(file: File) {
   const formData = new FormData()
   formData.append('file', file)
 
-  // apiClient handles the token and refresh logic
+ 
   const res = await apiClient(`${TRANSACTION_API_BASE}/upload`, {
     method: 'POST',
     credentials: 'include',
     body: formData,
-    // IMPORTANT: Content-Type header is omitted for FormData, the browser sets it correctly.
+   
   })
 
-  // Since apiClient throws an error on !res.ok, we only handle success here.
+  
   return res
 }
 
-// Upload Issuer file
+
 export async function uploadIssuerFile(file: File) {
   const formData = new FormData()
   formData.append('issuerFile', file)
@@ -194,7 +204,6 @@ export async function uploadIssuerFile(file: File) {
   return res
 }
 
-// Upload Acquirer file
 export async function uploadAcquirerFile(file: File) {
   const formData = new FormData()
   formData.append('acquirerFile', file)
@@ -255,7 +264,7 @@ export async function downloadCSV() {
     )
     // Force client-side cleanup
     logout()
-    // Redirect will happen in the component that calls this if it catches the throw
+  
     throw new Error('Session expired. Please log in again.')
   }
 
@@ -282,7 +291,7 @@ export interface FETransaction {
   financialRequestReceived: boolean
   authorisedOnZS: boolean
   reversalProcessed: boolean
-  postingDate: string // ISO date string
+  postingDate: string 
 }
 
 export interface ViewReconciledResponse {
@@ -329,11 +338,11 @@ export interface User {
   username: string
   email: string
   roleName: string
-  password?: string // password is only used in CreateUser
+  password?: string 
 }
 
 export async function CreateUser(user: User) {
-  // Uses the correct AUTH_API_BASE
+ 
   const requestOptions = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -347,13 +356,13 @@ export async function CreateUser(user: User) {
 }
 
 export async function fetchUsers() {
-  // Use apiClient which handles token management and throws on bad status codes
+
   const data = await apiClient(`${BASE_URL}/api/users`, {
     method: 'GET',
     credentials: 'include',
   })
   console.log('✅ Success! Fetched users:', data)
-  // Return the raw data. The component will handle array extraction.
+  
   return data
 }
 
@@ -383,10 +392,24 @@ export async function updateUser(
   })
 }
 
-// Delete user
 export async function deleteUser(id: number): Promise<void> {
   await apiClient(`${BASE_URL}/api/users/${id}`, {
     method: 'DELETE',
     credentials: 'include',
   })
+  return
 }
+
+export async function getRoles() {
+  try {
+    return await apiClient(`${BASE_URL}/api/roles`, {
+      method: 'GET',
+      credentials: 'include',
+    })
+  } catch (err) {
+    console.log('Error fetching roles:', err)
+    return [] // return empty array on error
+  }
+}
+
+

@@ -3,39 +3,16 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Pencil } from 'lucide-react'
 import CreateUserModal from '@/app/components/createNewuserModal'
-import { CreateUser, user, fetchUsers } from '@/app/services/api'
+import { CreateUser, user, fetchUsers , deleteUser, updateUser} from '@/app/services/api'
+import EditUserModal from '@/app/components/editUserModal'
 
-// Fixed fetchUsers function - remove try/catch to let React Query handle errors
 
 
-const StatusBadge = ({ status }) => {
-  const isActive = status === 'Active'
-  const colorClass = isActive
-    ? 'bg-green-100 text-green-700 ring-green-600/20'
-    : 'bg-red-100 text-red-700 ring-red-600/20'
-  const dotClass = isActive ? 'bg-green-500' : 'bg-red-500'
 
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${colorClass}`}
-    >
-      <svg
-        className={`mr-1.5 h-2 w-2 ${dotClass}`}
-        viewBox="0 0 6 6"
-        aria-hidden="true"
-      >
-        <circle cx={3} cy={3} r={3} />
-      </svg>
-      {status}
-    </span>
-  )
-}
-
-// Reusable component for the Role tag
 const RoleTag = ({ role }) => {
   let colorClass = 'bg-gray-100 text-gray-800'
   if (role === 'Admin') colorClass = 'bg-indigo-100 text-indigo-800'
-  if (role === 'Editor') colorClass = 'bg-blue-100 text-blue-800'
+  if (role === 'USER') colorClass = 'bg-blue-100 text-blue-800'
 
   return (
     <span
@@ -46,63 +23,127 @@ const RoleTag = ({ role }) => {
   )
 }
 
-// Main User Management Table Row
+
+
 const UserRow = ({ user }) => {
-  // Simple handler for demonstration
-  const handleAction = (action, userId) => {
-    console.log(`${action} action triggered for user ID: ${userId}`)
-    // In a real app, this would trigger a modal or an API call
+  const [isEditModal, setIsModalOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  // ✅ DELETE MUTATION
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
+    onError: (error) => {
+      console.error("Delete failed:", error)
+    },
+  })
+
+  // ✅ UPDATE MUTATION
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, updatedUser }) => updateUser(id, updatedUser),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+      setIsModalOpen(false)
+    },
+    onError: (error) => {
+      console.log("Failed to update user", error)
+    },
+  })
+
+  // ✅ ACTION HANDLER
+  const handleAction = async (action, userId) => {
+    if (action === "UPDATE") {
+      setIsModalOpen(true)
+      return
+    }
+
+    if (action === "Delete") {
+      const confirmDelete = confirm(`Are you sure you want to delete ${user.name}?`)
+      if (!confirmDelete) return
+
+      try {
+        await deleteUserMutation.mutateAsync(userId)
+        console.log(`User ${userId} deleted successfully.`)
+      } catch (error) {
+        console.error("Couldn't delete user:", error)
+      }
+    }
+  }
+
+  // ✅ Called when modal form submits
+  const handleUpdate = async (updatedUserData) => {
+    try {
+      await updateUserMutation.mutateAsync({ id: user.id, updatedUser: updatedUserData })
+    } catch (error) {
+      console.error("Couldn't update user:", error)
+    }
   }
 
   return (
-    <div className="grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center hover:bg-gray-50 transition duration-150 last:border-b-0">
-      {/* Name Column (Col 4) */}
-      <div className="col-span-4 flex items-center space-x-3 pl-6">
-        <img
-          className="h-10 w-10 rounded-full object-cover"
-          src={user.avatarUrl}
-          alt={`Avatar of ${user.name}`}
-          onError={(e) => {
-            e.target.onerror = null
-            e.target.src = 'https://placehold.co/40x40/e5e7eb/6b7280?text=U'
-          }}
-        />
-        <div className="font-medium text-gray-900">{user.name}</div>
+    <>
+      <div className="grid grid-cols-12 gap-4 py-4 border-b border-gray-100 items-center hover:bg-gray-50 transition duration-150 last:border-b-0">
+        {/* Name Column */}
+        <div className="col-span-4 flex items-center space-x-3 pl-6">
+          <img
+            className="h-10 w-10 rounded-full object-cover"
+            src={user.avatarUrl}
+            alt={`Avatar of ${user.name}`}
+            onError={(e) => {
+              e.target.onerror = null
+              e.target.src = "https://placehold.co/40x40/e5e7eb/6b7280?text=U"
+            }}
+          />
+          <div className="font-medium text-gray-900">{user.name}</div>
+        </div>
+
+        {/* Email Column */}
+        <div className="col-span-3 text-sm text-gray-500">{user.email}</div>
+
+        {/* Role Column */}
+        <div className="col-span-2">
+          <RoleTag role={user.role} />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="col-span-2 flex justify-end space-x-3 pr-6">
+          <button
+            onClick={() => handleAction("UPDATE", user.id)}
+            className="text-gray-400 hover:text-indigo-600 transition duration-150 p-2 rounded-full hover:bg-gray-100"
+            aria-label={`Edit ${user.name}`}
+          >
+            <Pencil className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={() => handleAction("Delete", user.id)}
+            disabled={deleteUserMutation.isLoading}
+            className="text-gray-400 hover:text-red-600 transition duration-150 p-2 rounded-full hover:bg-gray-100"
+            aria-label={`Delete ${user.name}`}
+          >
+            {deleteUserMutation.isLoading ? (
+              <span className="animate-pulse text-red-500">...</span>
+            ) : (
+              <Trash2 className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Email Column (Col 3) */}
-      <div className="col-span-3 text-sm text-gray-500">{user.email}</div>
-
-      {/* Role Column (Col 2) */}
-      <div className="col-span-2">
-        <RoleTag role={user.role} />
-      </div>
-
-      {/* Status Column (Col 2) */}
-      <div className="col-span-1">
-        <StatusBadge status={user.status} />
-      </div>
-
-      {/* Actions Column (Col 2) */}
-      <div className="col-span-2 flex justify-end space-x-3 pr-6">
-        <button
-          onClick={() => handleAction('Edit', user.id)}
-          className="text-gray-400 hover:text-indigo-600 transition duration-150 p-2 rounded-full hover:bg-gray-100"
-          aria-label={`Edit ${user.name}`}
-        >
-          <Pencil className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => handleAction('Delete', user.id)}
-          className="text-gray-400 hover:text-red-600 transition duration-150 p-2 rounded-full hover:bg-gray-100"
-          aria-label={`Delete ${user.name}`}
-        >
-          <Trash2 className="h-5 w-5" />
-        </button>
-      </div>
-    </div>
+      {/* ✅ Edit Modal */}
+      <EditUserModal
+        isOpen={isEditModal}
+        onClose={() => setIsModalOpen(false)}
+        onUpdate={handleUpdate}
+        isLoading={updateUserMutation.isLoading}
+        user={user} 
+      />
+    </>
   )
 }
+
+
 
 // Main Application Component
 const App = () => {
@@ -123,7 +164,9 @@ const App = () => {
     retry: 2,
   })
 
-  // React Query mutation for creating a user
+
+
+  
   const createUserMutation = useMutation({
     mutationFn: CreateUser,
     onSuccess: (createdUser) => {
@@ -254,6 +297,8 @@ const App = () => {
         onCreate={handleCreateUser}
         isLoading={createUserMutation.isPending}
       />
+
+    
     </div>
   )
 }

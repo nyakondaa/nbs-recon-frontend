@@ -81,10 +81,7 @@ export default function EditUserModal({
       email: email.trim(),
       roleName: roleName.trim(),
       ...(password.trim() && { password: password.trim() }) // Only include password if provided
-    }
-
-    console.log('🔄 Updating user:', userData)
-    console.log('📤 JSON stringified:', JSON.stringify(userData))
+    } 
 
     onUpdate(userData)
   }
