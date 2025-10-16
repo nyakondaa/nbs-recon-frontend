@@ -1,10 +1,10 @@
-// app/reconciliations/page.tsx
+
 'use client'
 
-import { useState, DragEvent } from 'react'
+import { useState, DragEvent, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Upload, Loader2, FileCheck, Eye } from 'lucide-react'
-
+import { getLoggedInUser } from '../services/logedUserHelper'
 import {
   uploadAcquirerFile,
   uploadHostFile,
@@ -32,6 +32,7 @@ export default function ReconciliationPage() {
   >('matched')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(50)
+   const [user, setUser] = useState(null);
 
   const allUploaded = hostFile && issuerFile && acquirerFile
 
@@ -95,9 +96,23 @@ export default function ReconciliationPage() {
     }
   }
 
+useEffect(() => {
+  fetch('/api/user')
+    .then(res => res.json())
+    .then(data => setUser(data))
+    .catch(err => console.error("Failed to fetch user:", err));
+}, []);
+
+
+  useEffect(() => {
+    if (!user) return;
+    console.log("this is out user", user)
+  }, [user]);
+
   const handleViewData = async (newPage: number = page) => {
-    setIsLoading(true)
-    const data = await viewReconciled(newPage, size)
+    if (!user) return;
+    setIsLoading(true) 
+    const data = await viewReconciled(user.id, newPage, size)
     console.log(data)
     setReconciledData(data)
     setPage(newPage)
@@ -321,7 +336,7 @@ export default function ReconciliationPage() {
   )
 }
 
-// Reusable Upload Card Component
+
 interface UploadCardProps {
   file: File | null
   setFile: (file: File | null) => void

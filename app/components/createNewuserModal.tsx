@@ -41,7 +41,11 @@ interface Role {
 const ACCENT_COLOR = 'hsl(140, 60%, 30%)'
 const HOVER_COLOR = 'hsl(140, 60%, 40%)'
 
-export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUserModalProps) {
+export default function CreateUserModal({
+  isOpen,
+  onClose,
+  onCreate,
+}: CreateUserModalProps) {
   const [username, setUsername] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [roleName, setRoleName] = React.useState('')
@@ -101,18 +105,26 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
         </Button>
 
         <DialogHeader className="space-y-1">
-          <div className="flex items-center space-x-3 text-2xl font-bold" style={{ color: ACCENT_COLOR }}>
+          <div
+            className="flex items-center space-x-3 text-2xl font-bold"
+            style={{ color: ACCENT_COLOR }}
+          >
             <UserPlus className="h-6 w-6" />
-            <DialogTitle className="text-2xl font-bold tracking-tight">Create User</DialogTitle>
+            <DialogTitle className="text-2xl font-bold tracking-tight">
+              Create User
+            </DialogTitle>
           </div>
           <DialogDescription className="text-sm text-gray-500 pt-2">
-            Fill in the details to create a new user. A default password will be assigned.
+            Fill in the details to create a new user. A default password will be
+            assigned.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username *</Label>
+            <Label htmlFor="username" className="font-medium text-gray-700">
+              Username *
+            </Label>
             <Input
               id="username"
               placeholder="e.g., jane.doe"
@@ -125,7 +137,9 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email" className="font-medium text-gray-700">
+              Email *
+            </Label>
             <Input
               id="email"
               type="email"
@@ -139,10 +153,22 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
           </div>
 
           <div className="space-y-2">
-            <Label>Role *</Label>
-            <Select value={roleName} onValueChange={setRoleName} disabled={loadingRoles}>
-              <SelectTrigger className="border-gray-300 focus-visible:ring-2 focus-visible:ring-offset-2 text-black" style={{ '--tw-ring-color': ACCENT_COLOR } as React.CSSProperties}>
-                <SelectValue placeholder="Select user role..." />
+            <Label className="font-medium text-gray-700">Role *</Label>
+            <Select
+              value={roleName}
+              onValueChange={setRoleName}
+              disabled={loadingRoles}
+            >
+              <SelectTrigger
+                className="border-gray-300 focus-visible:ring-2 focus-visible:ring-offset-2 text-black"
+                style={
+                  { '--tw-ring-color': ACCENT_COLOR } as React.CSSProperties
+                }
+              >
+                <SelectValue
+                  className="text-black"
+                  placeholder="Select user role..."
+                />
               </SelectTrigger>
               <SelectContent>
                 {roles.map((role) => (
@@ -155,8 +181,18 @@ export default function CreateUserModal({ isOpen, onClose, onCreate }: CreateUse
           </div>
 
           <DialogFooter className="flex justify-end space-x-3 pt-6">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button type="submit" style={{ backgroundColor: ACCENT_COLOR, '--hover-bg': HOVER_COLOR } as React.CSSProperties}>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              style={
+                {
+                  backgroundColor: ACCENT_COLOR,
+                  '--hover-bg': HOVER_COLOR,
+                } as React.CSSProperties
+              }
+            >
               Create User
             </Button>
           </DialogFooter>

@@ -1,4 +1,6 @@
+import { tr } from 'date-fns/locale'
 import Cookies from 'js-cookie'
+
 
 const BASE_URL = 'http://localhost:1977'
 const AUTH_API_BASE = `${BASE_URL}/api/auth`
@@ -21,7 +23,7 @@ const processQueue = (
   failedQueue = []
 }
 
-const TEN_MINUTES = 10 / 1440
+const TEN_MINUTES = 60 / 1440
 
 async function refreshToken(): Promise<string> {
   try {
@@ -306,17 +308,22 @@ export interface ViewReconciledResponse {
 }
 
 export async function viewReconciled(
+  userId: number,
   page: number = 0,
   size: number = 50
+  
+  
 ): Promise<ViewReconciledResponse> {
   try {
+   
     const data: ViewReconciledResponse = await apiClient(
-      `${TRANSACTION_API_BASE}/view?page=${page}&size=${size}`,
+      `${TRANSACTION_API_BASE}/view/${userId}?page=${page}&size=${size}`,
       {
         method: 'GET',
         credentials: 'include',
       }
     )
+    
     return data
   } catch (error: any) {
     return {
@@ -332,6 +339,63 @@ export async function viewReconciled(
     }
   }
 }
+
+
+export async function getReports() {
+
+  try{
+
+    const data =  await apiClient(
+    `${BASE_URL}/api/reports`,
+    {
+      method: 'GET',
+      credentials: 'include'
+    }
+  )
+
+  return data
+  }catch(err: any){
+
+    return{
+      status: 'error',
+      message:
+        err.message || 'Unknown error fetching reconciled transactions'
+    }
+  }
+  
+}
+
+export async function downloadReport(reportId: number, reportName: string) {
+  try {
+    const token = await getAuthToken(); // your bearer token
+    const response = await fetch(`${BASE_URL}/api/reports/${reportId}/download`, {
+      method: "GET",
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download report: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = reportName || `report-${reportId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Error downloading report:", error);
+    alert("Failed to download report.");
+  }
+}
+
+
+
 
 export interface User {
   id: number

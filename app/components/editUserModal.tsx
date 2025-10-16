@@ -52,7 +52,7 @@ export default function EditUserModal({
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
 
-  // Reset form when user changes or modal opens/closes
+  
   React.useEffect(() => {
     if (user && isOpen) {
       setUsername(user.name || '')
@@ -60,7 +60,7 @@ export default function EditUserModal({
       setRoleName(user.role || '')
       setPassword('') // Clear password field for security
     } else {
-      // Reset form when modal closes or user is null
+      
       setUsername('')
       setEmail('')
       setRoleName('')

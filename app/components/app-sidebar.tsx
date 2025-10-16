@@ -1,6 +1,4 @@
-"use client";
-
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import { Calendar, Home, Inbox, Search, Settings, Users } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -10,67 +8,73 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from '@/components/ui/sidebar'
 
-import { usePathname } from "next/navigation";
+import { getLoggedInUser } from '../services/logedUserHelper'
 
-// Assuming you've already defined these colors in tailwind.config.js or globals.css
-const nbsDarkGreen = "bg-nbs-dark-green"; // Tailwind CSS class for background
-const nbsLightGreen = "bg-nbs-light-green"; // Tailwind CSS class for hover background
-const nbsOffWhiteText = "text-nbs-off-white"; // Tailwind CSS class for text color
-const nbsLightGreenText = "text-nbs-light-green"; // Tailwind CSS class for highlight text color
+interface AppSidebarProps {
+  currentPathname?: string // pass current pathname from the client
+}
 
-// Menu items
-const items = [
-  { title: "Home", url: "/dashboard", icon: Home },
-  { title: "Reports", url: "/dashboard/reports", icon: Inbox }, 
-  { title: "Search", url: "/main/search", icon: Search },
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
-];
+const nbsDarkGreen = 'bg-nbs-dark-green'
+const nbsLightGreen = 'bg-nbs-light-green'
+const nbsOffWhiteText = 'text-nbs-off-white'
+const nbsLightGreenText = 'text-nbs-light-green'
 
+export async function AppSidebar({ currentPathname }: AppSidebarProps) {
+  const user = await getLoggedInUser()
 
-
-export function AppSidebar() {
-
-    const pathname = usePathname();
+  const items = [
+    { title: 'Home', url: '/dashboard', icon: Home },
+    { title: 'Reports', url: '/dashboard/reports', icon: Inbox },
+    ...(user?.role === 'admin' || 'ADMIN'
+      ? [{ title: 'Users', url: '/dashboard/users', icon: Users }]
+      : []),
+    { title: 'Settings', url: '/dashboard/settings', icon: Settings },
+  ]
 
   return (
-    <Sidebar >
+    <Sidebar>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="mt-5 items-center" >
-           <img src="/nbs-logo.png" alt="NBS Logo" className="w-16 h-16  my-4"/>
-            <h1 className={`text-xl font-bold text-center mt-2 ${nbsLightGreenText}`}>
+        <SidebarGroup className='space-y-3.5'>
+          <SidebarGroupLabel className="mt-5 items-center">
+            <img
+              src="/nbs-logo.png"
+              alt="NBS Logo"
+              className="w-16 h-16  my-4"
+            />
+            <h1
+              className={`text-xl font-bold text-center mt-2 ${nbsLightGreenText}`}
+            >
               Reconciliation
             </h1>
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="mt-5">
               {items.map((item) => {
-                 const isActive = pathname === item.url;
-                 return (
+                const isActive = currentPathname === item.url
+                return (
                   <SidebarMenuItem key={item.title} className="spaxce-y-2">
                     <SidebarMenuButton asChild>
-                     <a
-                    href={item.url}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors
+                      <a
+                        href={item.url}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors
                     ${nbsOffWhiteText} 
                     hover:${nbsLightGreen} hover:text-white
-                    ${isActive ? "bg-green-700 text-white" : ""}
+                    ${isActive ? 'bg-green-700 text-white' : ''}
                     `}
                       >
-                    <item.icon />
-                    <span>{item.title}</span>
-                    </a>
-                </SidebarMenuButton>
-                </SidebarMenuItem>
-            );
-        })}
-    </SidebarMenu>
-
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  );
+  )
 }
