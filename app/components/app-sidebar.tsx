@@ -22,16 +22,16 @@ const nbsOffWhiteText = 'text-nbs-off-white'
 const nbsLightGreenText = 'text-nbs-light-green'
 
 export async function AppSidebar({ currentPathname }: AppSidebarProps) {
-  const user = await getLoggedInUser()
+  const user = await getLoggedInUser()  
 
   const items = [
-    { title: 'Home', url: '/dashboard', icon: Home },
-    { title: 'Reports', url: '/dashboard/reports', icon: Inbox },
-    ...(user?.role === 'admin' || 'ADMIN'
-      ? [{ title: 'Users', url: '/dashboard/users', icon: Users }]
-      : []),
-    { title: 'Settings', url: '/dashboard/settings', icon: Settings },
-  ]
+  { title: 'Home', url: '/dashboard', icon: Home },
+  { title: 'Reports', url: '/dashboard/reports', icon: Inbox },
+  ...(user?.role?.toLowerCase() === 'admin'
+    ? [{ title: 'Users', url: '/dashboard/users', icon: Users }]
+    : []),
+  { title: 'Settings', url: '/dashboard/settings', icon: Settings },
+];
 
   return (
     <Sidebar>

@@ -15,6 +15,7 @@ import {
   viewReconciled,
   ViewReconciledResponse,
   FETransaction,
+  ReconcileAndSaveReport
 } from '../services/api'
 
 export default function ReconciliationPage() {
@@ -81,22 +82,7 @@ export default function ReconciliationPage() {
     }
   }
 
-  async function submitFiles() {
-    if (!hostFile || !issuerFile || !acquirerFile) {
-      alert('Please select all files before uploading')
-      return
-    }
-
-    const result = await handleUpload(hostFile, issuerFile, acquirerFile)
-
-    if (result.status === 'success') {
-      alert('All files uploaded!')
-    } else {
-      alert(result.message)
-    }
-  }
-
-useEffect(() => {
+  useEffect(() => {
   fetch('/api/user')
     .then(res => res.json())
     .then(data => setUser(data))
@@ -109,10 +95,31 @@ useEffect(() => {
     console.log("this is out user", user)
   }, [user]);
 
+
+  async function submitFiles() {
+    if (!hostFile || !issuerFile || !acquirerFile) {
+      alert('Please select all files before uploading')
+      return
+    }
+
+    const result = await handleUpload(hostFile, issuerFile, acquirerFile)
+
+    if (result.status === 'success') {
+      alert('All files uploaded!')
+      const response = await ReconcileAndSaveReport(user.id)
+      if (response.status === "success"){
+        await handleViewData(0)
+      }
+    } else {
+      alert(result.message)
+    }
+  }
+
+
   const handleViewData = async (newPage: number = page) => {
     if (!user) return;
     setIsLoading(true) 
-    const data = await viewReconciled(user.id, newPage, size)
+    const data = await viewReconciled(newPage, size)
     console.log(data)
     setReconciledData(data)
     setPage(newPage)
@@ -133,7 +140,7 @@ useEffect(() => {
     }
   }
 
-  // Define the columns you want to display
+  
   const columnsToDisplay: (keyof FETransaction)[] = [
     'terminalId',
     'rrn',
@@ -206,20 +213,7 @@ useEffect(() => {
           {isUploading ? 'Reconciling, please wait...' : 'Reconcile'}
         </Button>
 
-        <Button
-          onClick={() => handleViewData()}
-          size="lg"
-          disabled={isLoading}
-          aria-busy={isLoading}
-          className="px-10 py-6 text-lg bg-green-800 hover:bg-accent disabled:opacity-70"
-        >
-          {isLoading ? (
-            <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" />
-          ) : (
-            <Eye className="mr-2 h-5 w-5" />
-          )}
-          {isLoading ? 'Loading...' : 'View Data'}
-        </Button>
+        
       </div>
 
       {/* Table Section */}

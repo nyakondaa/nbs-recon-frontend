@@ -307,8 +307,29 @@ export interface ViewReconciledResponse {
   message?: string
 }
 
+export async function ReconcileAndSaveReport(userId: number) {
+  try {
+    const response = await apiClient(
+      `${TRANSACTION_API_BASE}/reconcile/${userId}`,
+      {
+        method: 'POST',
+        credentials: 'include',
+      }
+    );
+
+    return response;
+
+  } catch (error: any) {
+    return {
+      status: 'error',
+      message: error.message || 'Unknown error during reconciliation',
+    };
+  }
+}
+
+
 export async function viewReconciled(
-  userId: number,
+ 
   page: number = 0,
   size: number = 50
   
@@ -317,7 +338,7 @@ export async function viewReconciled(
   try {
    
     const data: ViewReconciledResponse = await apiClient(
-      `${TRANSACTION_API_BASE}/view/${userId}?page=${page}&size=${size}`,
+      `${TRANSACTION_API_BASE}/view?page=${page}&size=${size}`,
       {
         method: 'GET',
         credentials: 'include',
@@ -329,7 +350,7 @@ export async function viewReconciled(
     return {
       status: 'error',
       message:
-        error.message || 'Unknown error fetching reconciled transactions',
+      error.message || 'Unknown error fetching reconciled transactions',
       matched: [],
       unmatched: [],
       autoReversals: [],
