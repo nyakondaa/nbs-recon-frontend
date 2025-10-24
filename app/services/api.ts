@@ -23,8 +23,8 @@ const processQueue = (
   failedQueue = []
 }
 
-const TEN_MINUTES = 60 / 1440
 
+const THREE_HOURS = 3 / 24
 async function refreshToken(): Promise<string> {
   try {
     const res = await fetch(`${AUTH_API_BASE}/refresh`, {
@@ -40,8 +40,8 @@ async function refreshToken(): Promise<string> {
     const data = await res.json()
     const newAccessToken = data.access_token
     Cookies.set('auth_token', newAccessToken, {
-      expires: TEN_MINUTES,
-      secure: false,
+      expires: THREE_HOURS,
+      secure: true,
       sameSite: 'Lax',
       path: '/',
     })
@@ -156,7 +156,7 @@ export async function login(
 
   const data = await res.json()
   Cookies.set('auth_token', data.access_token, {
-    expires: TEN_MINUTES,
+    expires: THREE_HOURS,
     secure: false,
     sameSite: 'Lax',
     path: '/',
@@ -443,6 +443,17 @@ export async function CreateUser(user: User) {
 export async function fetchUsers() {
 
   const data = await apiClient(`${BASE_URL}/api/users`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  console.log('✅ Success! Fetched users:', data)
+  
+  return data
+}
+
+export async function fetchReportsAndUsers() {
+
+  const data = await apiClient(`${BASE_URL}/api/users/reports`, {
     method: 'GET',
     credentials: 'include',
   })
