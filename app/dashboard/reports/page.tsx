@@ -1,4 +1,4 @@
-// app/reports/page.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -43,7 +43,7 @@ interface Report {
   id: string
   name: string
   dateGenerated: string
-  approvedBy: string
+  reviewedBy: string
   reportDoneBy: string
   status: 'approved' | 'pending' | 'rejected' | 'draft'
 }
@@ -92,9 +92,10 @@ export default function ReportsPage() {
             id: report.id.toString(),
             name: report.reportName,
             dateGenerated: new Date(report.generatedAt).toLocaleDateString(),
-            approvedBy: report.approvedByUsername || '-',
+            reviewedBy: report.reviewedByUsername || '-',
             reportDoneBy: report.generatedByUsername || '-',
-            status: report.approvedBy ? 'approved' : 'pending',
+            status: report.status.toLowerCase() as 'approved' | 'pending' | 'rejected' | 'draft'
+
           }))
 
           setReports(formattedReports)
@@ -114,12 +115,12 @@ export default function ReportsPage() {
     const matchesSearch = 
       report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.reportDoneBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.approvedBy.toLowerCase().includes(searchTerm.toLowerCase())
+      report.reviewedBy.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesApprovedBy = !approvedByFilter || 
       (() => {
         const selectedUser = users.find(user => user.id.toString() === approvedByFilter)
-        return selectedUser ? report.approvedBy.toLowerCase().includes(selectedUser.username.toLowerCase()) : false
+        return selectedUser ? report.reviewedBy.toLowerCase().includes(selectedUser.username.toLowerCase()) : false
       })()
     
     const matchesReportDoneBy = !reportDoneByFilter || 
@@ -184,7 +185,7 @@ export default function ReportsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6 bg-gray-50/50 min-h-screen">
-      {/* Header */}
+    
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
@@ -285,10 +286,10 @@ export default function ReportsPage() {
                   </Select>
                 </div>
 
-                {/* Approved By Filter */}
+               
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Approved By
+                    Reviewed By
                   </label>
                   <Select 
                     value={approvedByFilter} 
@@ -452,7 +453,7 @@ export default function ReportsPage() {
                       Date Generated
                     </th>
                     <th className="text-left py-4 px-6 text-gray-900 text-sm font-semibold uppercase tracking-wider">
-                      Approved By
+                      Reviewed By
                     </th>
                     <th className="text-left py-4 px-6 text-gray-900 text-sm font-semibold uppercase tracking-wider">
                       Report Done By
