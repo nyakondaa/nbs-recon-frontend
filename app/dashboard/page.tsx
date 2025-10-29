@@ -135,31 +135,30 @@ export default function ReconciliationPage() {
       setter(e.dataTransfer.files[0])
   }
 
-  const handleUpload = async (host: File, issuer: File, acquirer: File) => {
-    setIsUploading(true)
-    try {
-      const [hostRes, issuerRes, acquirerRes] = await Promise.all([
-        uploadHostFile(host),
-        uploadIssuerFile(issuer),
-        uploadAcquirerFile(acquirer),
-      ])
+async function handleUpload(host: File, issuer: File, acquirer: File) {
+  setIsUploading(true)
+  try {
+    const hostRes = await uploadHostFile(host)
+    const issuerRes = await uploadIssuerFile(issuer)
+    const acquirerRes = await uploadAcquirerFile(acquirer)
 
-      return {
-        host: hostRes,
-        issuer: issuerRes,
-        acquirer: acquirerRes,
-        message: 'All files uploaded successfully',
-        status: 'success',
-      }
-    } catch (err: any) {
-      return {
-        message: err.message || 'Error uploading one or more files',
-        status: 'error',
-      }
-    } finally {
-      setIsUploading(false)
+    return {
+      host: hostRes,
+      issuer: issuerRes,
+      acquirer: acquirerRes,
+      message: 'All files uploaded successfully',
+      status: 'success',
     }
+  } catch (err: any) {
+    return {
+      message: err.message || 'Error uploading one or more files',
+      status: 'error',
+    }
+  } finally {
+    setIsUploading(false)
   }
+}
+
 
   useEffect(() => {
     fetch('/api/user')
