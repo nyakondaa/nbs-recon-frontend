@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, DragEvent, useEffect } from 'react'
@@ -15,8 +14,80 @@ import {
   viewReconciled,
   ViewReconciledResponse,
   FETransaction,
-  ReconcileAndSaveReport
+  ReconcileAndSaveReport,
 } from '../services/api'
+interface FormErrors {
+  accountNumber?: string
+  accountName?: string
+  currency?: string
+  reconDate?: string
+}
+
+const FormField = ({
+  label,
+  type = 'text',
+  value,
+  onChange,
+  placeholder,
+  required = false,
+  error = '',
+  ...props
+}) => {
+  const [inputType, setInputType] = useState(type)
+
+  const handleFocus = () => {
+    if (type === 'date') {
+      setInputType('date')
+    }
+  }
+
+  const handleBlur = (e) => {
+    if (type === 'date' && !e.target.value) {
+      setInputType('text')
+    }
+  }
+
+  // Determine styles (same as before)
+  const inputClass = `
+    w-full p-3 border rounded-lg 
+    focus:ring-2 transition duration-150 ease-in-out
+    dark:bg-gray-700 dark:text-white
+    placeholder-gray-400 dark:placeholder-gray-500
+    text-black
+    ${
+      error
+        ? 'border-red-500 focus:ring-red-500/50'
+        : 'border-gray-300 focus:ring-blue-500/50 focus:border-blue-500 dark:border-gray-600'
+    }
+  `
+
+  const finalInputType = type === 'date' && !value ? 'text' : inputType
+
+  return (
+    <div className="flex flex-col space-y-2">
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <input
+        // Use the dynamically determined type
+        type={finalInputType}
+        value={value}
+        onChange={onChange}
+        // Attach the new handlers
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        className={inputClass}
+        placeholder={placeholder}
+        required={required}
+        aria-invalid={!!error}
+        {...props}
+      />
+      {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+    </div>
+  )
+
+  
+}
 
 export default function ReconciliationPage() {
   const [hostFile, setHostFile] = useState<File | null>(null)
@@ -29,12 +100,20 @@ export default function ReconciliationPage() {
     useState<ViewReconciledResponse | null>(null)
   const [dragActive, setDragActive] = useState<string | null>(null)
   const [viewType, setViewType] = useState<
-    'matched' | 'unmatched' | 'autoReversals'
+    | 'matched'
+    | 'unmatched'
+    | 'autoReversals'
+    | 'usOnOthersAfterCutOff'
+    | 'othersOnUsAfterCutOff'
   >('matched')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(50)
-   const [user, setUser] = useState(null);
-
+  const [user, setUser] = useState(null)
+  const [accountNumber, setAccountNumber] = useState('')
+  const [accountName, setAccountName] = useState('')
+  const [currency, setCurrency] = useState('')
+  const [reconDate, setReconDate] = useState('')
+  const [errors, setErrors] = useState<FormErrors>({})
   const allUploaded = hostFile && issuerFile && acquirerFile
 
   const handleFileChange = (
@@ -83,18 +162,16 @@ export default function ReconciliationPage() {
   }
 
   useEffect(() => {
-  fetch('/api/user')
-    .then(res => res.json())
-    .then(data => setUser(data))
-    .catch(err => console.error("Failed to fetch user:", err));
-}, []);
-
+    fetch('/api/user')
+      .then((res) => res.json())
+      .then((data) => setUser(data))
+      .catch((err) => console.error('Failed to fetch user:', err))
+  }, [])
 
   useEffect(() => {
-    if (!user) return;
-    console.log("this is out user", user)
-  }, [user]);
-
+    if (!user) return
+    console.log('this is out user', user)
+  }, [user])
 
   async function submitFiles() {
     if (!hostFile || !issuerFile || !acquirerFile) {
@@ -104,10 +181,17 @@ export default function ReconciliationPage() {
 
     const result = await handleUpload(hostFile, issuerFile, acquirerFile)
 
+     if (!validate()) {      
+      console.error('Account details validation failed.');
+      return
+    }
+
     if (result.status === 'success') {
       alert('All files uploaded!')
-      const response = await ReconcileAndSaveReport(user.id)
-      if (response.status === "success"){
+
+      //put the values
+      const response = await ReconcileAndSaveReport(user.id, accountNumber,accountName, reconDate,currency )
+      if (response.status === 'success') {
         await handleViewData(0)
       }
     } else {
@@ -115,10 +199,9 @@ export default function ReconciliationPage() {
     }
   }
 
-
   const handleViewData = async (newPage: number = page) => {
-    if (!user) return;
-    setIsLoading(true) 
+    if (!user) return
+    setIsLoading(true)
     const data = await viewReconciled(newPage, size)
     console.log(data)
     setReconciledData(data)
@@ -135,18 +218,48 @@ export default function ReconciliationPage() {
         return reconciledData.unmatched || []
       case 'autoReversals':
         return reconciledData.autoReversals || []
+      case 'usOnOthersAfterCutOff':
+        return reconciledData.usOnOthersAfterCutOff || []
+      case 'othersOnUsAfterCutOff':
+        return reconciledData.othersOnUsAfterCutOff || []
       default:
         return []
     }
   }
 
-  
   const columnsToDisplay: (keyof FETransaction)[] = [
     'terminalId',
     'rrn',
     'amount',
     'postingDate',
   ]
+
+
+   const validate = (): boolean => {
+    let newErrors: FormErrors = {}
+
+    if (!accountNumber) {
+      newErrors.accountNumber = 'Account number is required.'
+    } else if (!/^\d+$/.test(accountNumber)) {
+      newErrors.accountNumber = 'Account number must only contain digits.'
+    }
+
+    if (!accountName) {
+      newErrors.accountName = 'Account name is required.'
+    }
+
+    if (!currency) {
+      newErrors.currency = 'Currency is required.'
+    }
+
+    if (!reconDate) {
+      newErrors.reconDate = 'Reconciliation date is required.'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
 
   const displayedData = getDataForView()
 
@@ -161,6 +274,49 @@ export default function ReconciliationPage() {
           Upload the required files and reconcile or view reconciled
           transactions.
         </p>
+      </div>
+
+      {/*report headers section */}
+
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-12 space-y-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
+          Account Reconciliation Details
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            label="Account Number"
+            value={accountNumber}
+            onChange={(e) => setAccountNumber(e.target.value)}
+            placeholder="e.g. 320200409000924"
+            required
+          />
+
+          <FormField
+            label="Account Name"
+            value={accountName}
+            onChange={(e) => setAccountName(e.target.value)}
+            placeholder="e.g. ZIMSWITCHSUSPENSE"
+            required
+          />
+
+          <FormField
+            label="Currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            placeholder="e.g. ZWG or USD"
+            required
+          />
+
+          <FormField
+            label="Reconciliation Date"
+            type="date"
+            value={reconDate}
+            onChange={(e) => setReconDate(e.target.value)}
+            placeholder="e.g. YYYY-MM-DD" // <-- Now this will show until clicked!
+            required
+          />
+        </div>
       </div>
 
       {/* Upload Section */}
@@ -212,34 +368,42 @@ export default function ReconciliationPage() {
           )}
           {isUploading ? 'Reconciling, please wait...' : 'Reconcile'}
         </Button>
-
-        
       </div>
 
       {/* Table Section */}
       {reconciledData && (
         <div className="mt-6 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
           <div className="mt-4 flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
-            {(['matched', 'unmatched', 'autoReversals'] as const).map(
-              (type) => (
-                <Button
-                  key={type}
-                  variant={viewType === type ? 'default' : 'outline'}
-                  onClick={() => setViewType(type)}
-                  className={`px-4 py-2 text-sm font-medium rounded-full ${
-                    viewType === type
-                      ? 'bg-green-600 text-white hover:bg-accent'
-                      : 'bg-transparent text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {type === 'matched'
-                    ? 'Matched'
-                    : type === 'unmatched'
-                      ? 'Unmatched'
-                      : 'Auto Reversals'}
-                </Button>
-              )
-            )}
+            {(
+              [
+                'matched',
+                'unmatched',
+                'autoReversals',
+                'usOnOthersAfterCutOff',
+                'othersOnUsAfterCutOff',
+              ] as const
+            ).map((type) => (
+              <Button
+                key={type}
+                variant={viewType === type ? 'default' : 'outline'}
+                onClick={() => setViewType(type)}
+                className={`px-4 py-2 text-sm font-medium rounded-full ${
+                  viewType === type
+                    ? 'bg-green-600 text-white hover:bg-accent'
+                    : 'bg-transparent text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {type === 'matched'
+                  ? `Matched (${reconciledData.matchedTotal ?? 0})`
+                  : type === 'unmatched'
+                    ? `Unmatched (${reconciledData.unmatchedTotal ?? 0})`
+                    : type === 'autoReversals'
+                      ? `Auto Reversals (${reconciledData.autoReversalsTotal ?? 0})`
+                      : type === 'usOnOthersAfterCutOff'
+                        ? `Issuer After Cut-Off (${reconciledData.usOnOthersAfterCutOffTotal ?? 0})`
+                        : `Acquirer After Cut-Off (${reconciledData.othersOnUsAfterCutOffTotal ?? 0})`}
+              </Button>
+            ))}
           </div>
           {displayedData.length > 0 ? (
             <div className="mt-4 border rounded-lg overflow-auto max-h-[500px]">
@@ -311,7 +475,13 @@ export default function ReconciliationPage() {
                         (reconciledData?.unmatchedTotal ?? 0)) ||
                     (viewType === 'autoReversals' &&
                       (page + 1) * size >=
-                        (reconciledData?.autoReversalsTotal ?? 0))
+                        (reconciledData?.autoReversalsTotal ?? 0)) ||
+                    (viewType === 'usOnOthersAfterCutOff' &&
+                      (page + 1) * size >=
+                        (reconciledData?.usOnOthersAfterCutOffTotal ?? 0)) ||
+                    (viewType === 'othersOnUsAfterCutOff' &&
+                      (page + 1) * size >=
+                        (reconciledData?.othersOnUsAfterCutOffTotal ?? 0))
                   }
                   className="bg-gray-200 dark:bg-gray-600"
                 >
@@ -329,7 +499,6 @@ export default function ReconciliationPage() {
     </div>
   )
 }
-
 
 interface UploadCardProps {
   file: File | null

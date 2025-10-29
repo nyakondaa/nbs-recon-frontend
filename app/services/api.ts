@@ -336,31 +336,51 @@ export interface ViewReconciledResponse {
   matched?: FETransaction[]
   unmatched?: FETransaction[]
   autoReversals?: FETransaction[]
+  usOnOthersAfterCutOff?: FETransaction[]
+  othersOnUsAfterCutOff?: FETransaction[]
   matchedTotal?: number
   unmatchedTotal?: number
   autoReversalsTotal?: number
+  usOnOthersAfterCutOffTotal?: number    // add this
+  othersOnUsAfterCutOffTotal?: number    // add this
   message?: string
 }
 
-export async function ReconcileAndSaveReport(userId: number) {
+
+export async function ReconcileAndSaveReport(
+  userId: number,
+  accountNumber: string,
+  accountName: string,
+  reconDate: string,
+  currency: string
+ 
+) {
   try {
+    const formData = new FormData();
+    formData.append("accountNumber", accountNumber);
+    formData.append("accountName", accountName);
+     formData.append("reconDate", reconDate);
+    formData.append("currency", currency);
+   
+
     const response = await apiClient(
       `${TRANSACTION_API_BASE}/reconcile/${userId}`,
       {
-        method: 'POST',
-        credentials: 'include',
+        method: "POST",
+        credentials: "include",
+        body: formData, // send as multipart/form-data
       }
     );
 
     return response;
-
   } catch (error: any) {
     return {
-      status: 'error',
-      message: error.message || 'Unknown error during reconciliation',
+      status: "error",
+      message: error.message || "Unknown error during reconciliation",
     };
   }
 }
+
 
 
 export async function viewReconciled(
@@ -389,6 +409,8 @@ export async function viewReconciled(
       matched: [],
       unmatched: [],
       autoReversals: [],
+      issuerTranascationsAfterCutOff: [],
+      acquirerTranascationsAfterCutOff: [],
       matchedTotal: 0,
       unmatchedTotal: 0,
       autoReversalsTotal: 0,
