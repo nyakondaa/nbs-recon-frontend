@@ -4,17 +4,17 @@ import { useState, DragEvent, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Upload, Loader2, FileCheck, Eye } from 'lucide-react'
 import { getLoggedInUser } from '../services/logedUserHelper'
+import { CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import {
   uploadAcquirerFile,
-  uploadHostFile,
+  uploadHostFiles,
   uploadIssuerFile,
-  reconcile,
   ReconcileResponse,
-  downloadCSV,
   viewReconciled,
   ViewReconciledResponse,
   FETransaction,
   ReconcileAndSaveReport,
+  uploadIHS,
 } from '../services/api'
 interface FormErrors {
   accountNumber?: string
@@ -85,12 +85,11 @@ const FormField = ({
       {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
     </div>
   )
-
-  
 }
 
 export default function ReconciliationPage() {
   const [hostFile, setHostFile] = useState<File | null>(null)
+  const [IHSFile, setIHSFile]= useState<File | null>(null)
   const [issuerFile, setIssuerFile] = useState<File | null>(null)
   const [acquirerFile, setAcquirerFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -100,11 +99,7 @@ export default function ReconciliationPage() {
     useState<ViewReconciledResponse | null>(null)
   const [dragActive, setDragActive] = useState<string | null>(null)
   const [viewType, setViewType] = useState<
-    | 'matched'
-    | 'unmatched'
-    | 'autoReversals'
-    | 'usOnOthersAfterCutOff'
-    | 'othersOnUsAfterCutOff'
+    'matched' | 'exceptions' | 'usOnOthersAfterCutOff' | 'othersOnUsAfterCutOff'
   >('matched')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(50)
@@ -114,7 +109,7 @@ export default function ReconciliationPage() {
   const [currency, setCurrency] = useState('')
   const [reconDate, setReconDate] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
-  const allUploaded = hostFile && issuerFile && acquirerFile
+  const allUploaded = hostFile && issuerFile && acquirerFile && IHSFile
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -135,30 +130,31 @@ export default function ReconciliationPage() {
       setter(e.dataTransfer.files[0])
   }
 
-async function handleUpload(host: File, issuer: File, acquirer: File) {
-  setIsUploading(true)
-  try {
-    const hostRes = await uploadHostFile(host)
-    const issuerRes = await uploadIssuerFile(issuer)
-    const acquirerRes = await uploadAcquirerFile(acquirer)
+  async function handleUpload(host: File, issuer: File, acquirer: File, IHS: File, reconDate: string) {
+    setIsUploading(true)
+    try {
+      const hostRes = await uploadHostFiles(host, reconDate)
+      const IHSRes =  await uploadIHS(IHS, reconDate)
+      const issuerRes = await uploadIssuerFile(issuer, reconDate)
+      const acquirerRes = await uploadAcquirerFile(acquirer, reconDate)
 
-    return {
-      host: hostRes,
-      issuer: issuerRes,
-      acquirer: acquirerRes,
-      message: 'All files uploaded successfully',
-      status: 'success',
+      return {
+        host: hostRes,
+        issuer: issuerRes,
+        acquirer: acquirerRes,
+        IHS:IHSRes,
+        message: 'All files uploaded successfully',
+        status: 'success',
+      }
+    } catch (err: any) {
+      return {
+        message: err.message || 'Error uploading one or more files',
+        status: 'error',
+      }
+    } finally {
+      setIsUploading(false)
     }
-  } catch (err: any) {
-    return {
-      message: err.message || 'Error uploading one or more files',
-      status: 'error',
-    }
-  } finally {
-    setIsUploading(false)
   }
-}
-
 
   useEffect(() => {
     fetch('/api/user')
@@ -173,15 +169,17 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
   }, [user])
 
   async function submitFiles() {
-    if (!hostFile || !issuerFile || !acquirerFile) {
+    if (!hostFile || !issuerFile || !acquirerFile || !IHSFile) {
       alert('Please select all files before uploading')
       return
     }
 
-    const result = await handleUpload(hostFile, issuerFile, acquirerFile)
+    const timestamp = new Date().toISOString()
 
-     if (!validate()) {      
-      console.error('Account details validation failed.');
+    const result = await handleUpload(hostFile, issuerFile, acquirerFile,IHSFile, timestamp)
+
+    if (!validate()) {
+      console.error('Account details validation failed.')
       return
     }
 
@@ -189,19 +187,27 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
       alert('All files uploaded!')
 
       //put the values
-      const response = await ReconcileAndSaveReport(user.id, accountNumber,accountName, reconDate,currency )
+      const response = await ReconcileAndSaveReport(
+        user.id,
+        accountNumber,
+        accountName,
+        reconDate,
+        currency,
+        timestamp
+
+      )
       if (response.status === 'success') {
-        await handleViewData(0)
+        await handleViewData(0, timestamp)
       }
     } else {
       alert(result.message)
     }
   }
 
-  const handleViewData = async (newPage: number = page) => {
+  const handleViewData = async (newPage: number = page, dateRecon: string) => {
     if (!user) return
     setIsLoading(true)
-    const data = await viewReconciled(newPage, size)
+    const data = await viewReconciled(newPage, size, dateRecon )
     console.log(data)
     setReconciledData(data)
     setPage(newPage)
@@ -213,10 +219,8 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
     switch (viewType) {
       case 'matched':
         return reconciledData.matched || []
-      case 'unmatched':
-        return reconciledData.unmatched || []
-      case 'autoReversals':
-        return reconciledData.autoReversals || []
+      case 'exceptions':
+        return reconciledData.exceptions || []
       case 'usOnOthersAfterCutOff':
         return reconciledData.usOnOthersAfterCutOff || []
       case 'othersOnUsAfterCutOff':
@@ -233,8 +237,7 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
     'postingDate',
   ]
 
-
-   const validate = (): boolean => {
+  const validate = (): boolean => {
     let newErrors: FormErrors = {}
 
     if (!accountNumber) {
@@ -258,7 +261,6 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
-
 
   const displayedData = getDataForView()
 
@@ -327,7 +329,16 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
           setDragActive={setDragActive}
           allUploaded={allUploaded}
           type="host"
-          label="Host File"
+          label="Essence File"
+        />
+        <UploadCard
+          file={IHSFile}
+          setFile={setIHSFile}
+          dragActive={dragActive}
+          setDragActive={setDragActive}
+          allUploaded={allUploaded}
+          type="IHS"
+          label="IHS File"
         />
         <UploadCard
           file={acquirerFile}
@@ -376,8 +387,8 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
             {(
               [
                 'matched',
-                'unmatched',
-                'autoReversals',
+
+                'exceptions',
                 'usOnOthersAfterCutOff',
                 'othersOnUsAfterCutOff',
               ] as const
@@ -386,21 +397,31 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
                 key={type}
                 variant={viewType === type ? 'default' : 'outline'}
                 onClick={() => setViewType(type)}
-                className={`px-4 py-2 text-sm font-medium rounded-full ${
+                className={`px-4 py-2 text-sm font-medium rounded-full flex items-center gap-2 ${
                   viewType === type
-                    ? 'bg-green-600 text-white hover:bg-accent'
+                    ? type === 'exceptions'
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : type === 'usOnOthersAfterCutOff' ||
+                          type === 'othersOnUsAfterCutOff'
+                        ? 'bg-yellow-400 text-black hover:bg-yellow-600'
+                        : 'bg-green-600 text-white hover:bg-accent'
                     : 'bg-transparent text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
+                {type === 'matched' && <CheckCircle className="w-4 h-4" />}
+                {type === 'exceptions' && <AlertCircle className="w-4 h-4" />}
+                {(type === 'usOnOthersAfterCutOff' ||
+                  type === 'othersOnUsAfterCutOff') && (
+                  <Clock className="w-4 h-4" />
+                )}
+
                 {type === 'matched'
                   ? `Matched (${reconciledData.matchedTotal ?? 0})`
-                  : type === 'unmatched'
-                    ? `Unmatched (${reconciledData.unmatchedTotal ?? 0})`
-                    : type === 'autoReversals'
-                      ? `Auto Reversals (${reconciledData.autoReversalsTotal ?? 0})`
-                      : type === 'usOnOthersAfterCutOff'
-                        ? `Issuer After Cut-Off (${reconciledData.usOnOthersAfterCutOffTotal ?? 0})`
-                        : `Acquirer After Cut-Off (${reconciledData.othersOnUsAfterCutOffTotal ?? 0})`}
+                  : type === 'exceptions'
+                    ? `Exceptions (${reconciledData.exceptionsTotal ?? 0})`
+                    : type === 'usOnOthersAfterCutOff'
+                      ? `Issuer After Cut-Off (${reconciledData.usOnOthersAfterCutOffTotal ?? 0})`
+                      : `Acquirer After Cut-Off (${reconciledData.othersOnUsAfterCutOffTotal ?? 0})`}
               </Button>
             ))}
           </div>
@@ -469,12 +490,9 @@ async function handleUpload(host: File, issuer: File, acquirer: File) {
                     (viewType === 'matched' &&
                       (page + 1) * size >=
                         (reconciledData?.matchedTotal ?? 0)) ||
-                    (viewType === 'unmatched' &&
+                    (viewType === 'exceptions' &&
                       (page + 1) * size >=
-                        (reconciledData?.unmatchedTotal ?? 0)) ||
-                    (viewType === 'autoReversals' &&
-                      (page + 1) * size >=
-                        (reconciledData?.autoReversalsTotal ?? 0)) ||
+                        (reconciledData?.exceptionsTotal ?? 0)) ||
                     (viewType === 'usOnOthersAfterCutOff' &&
                       (page + 1) * size >=
                         (reconciledData?.usOnOthersAfterCutOffTotal ?? 0)) ||

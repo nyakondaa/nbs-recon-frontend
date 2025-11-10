@@ -211,26 +211,40 @@ export async function logout() {
 
 
 // Upload FE (Host) file
-export async function uploadHostFile(file: File) {
+export async function uploadHostFiles(file: File, reconDate: string) {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('reconDate', reconDate) // <-- add reconDate
 
- 
   const res = await apiClient(`${TRANSACTION_API_BASE}/upload`, {
     method: 'POST',
     credentials: 'include',
     body: formData,
-   
   })
 
-  
   return res
 }
 
+export async function uploadIHS(file: File, reconDate: string) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('reconDate', reconDate) // <-- add reconDate
 
-export async function uploadIssuerFile(file: File) {
+  console.log("called IHS file")
+
+  const res = await apiClient(`${TRANSACTION_API_BASE}/IHS`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+
+  return res
+}
+
+export async function uploadIssuerFile(file: File, reconDate: string) {
   const formData = new FormData()
   formData.append('issuerFile', file)
+  formData.append('reconDate', reconDate) 
 
   const res = await apiClient(`${TRANSACTION_API_BASE}/upload/issuer`, {
     method: 'POST',
@@ -241,9 +255,10 @@ export async function uploadIssuerFile(file: File) {
   return res
 }
 
-export async function uploadAcquirerFile(file: File) {
+export async function uploadAcquirerFile(file: File, reconDate: string) {
   const formData = new FormData()
   formData.append('acquirerFile', file)
+  formData.append('reconDate', reconDate) 
 
   const res = await apiClient(`${TRANSACTION_API_BASE}/upload/acquirer`, {
     method: 'POST',
@@ -335,12 +350,12 @@ export interface ViewReconciledResponse {
   status: 'success' | 'error'
   matched?: FETransaction[]
   unmatched?: FETransaction[]
-  autoReversals?: FETransaction[]
+  exceptions?: FETransaction[]
   usOnOthersAfterCutOff?: FETransaction[]
   othersOnUsAfterCutOff?: FETransaction[]
   matchedTotal?: number
   unmatchedTotal?: number
-  autoReversalsTotal?: number
+  exceptionsTotal?: number
   usOnOthersAfterCutOffTotal?: number    // add this
   othersOnUsAfterCutOffTotal?: number    // add this
   message?: string
@@ -352,7 +367,8 @@ export async function ReconcileAndSaveReport(
   accountNumber: string,
   accountName: string,
   reconDate: string,
-  currency: string
+  currency: string,
+  dateRecon: string
  
 ) {
   try {
@@ -361,6 +377,7 @@ export async function ReconcileAndSaveReport(
     formData.append("accountName", accountName);
      formData.append("reconDate", reconDate);
     formData.append("currency", currency);
+    formData.append("dateRecon", dateRecon) 
    
 
     const response = await apiClient(
@@ -382,18 +399,14 @@ export async function ReconcileAndSaveReport(
 }
 
 
-
 export async function viewReconciled(
- 
   page: number = 0,
-  size: number = 50
-  
-  
+  size: number = 50,
+  dateRecon: string
 ): Promise<ViewReconciledResponse> {
   try {
-   
     const data: ViewReconciledResponse = await apiClient(
-      `${TRANSACTION_API_BASE}/view?page=${page}&size=${size}`,
+      `${TRANSACTION_API_BASE}/view?page=${page}&size=${size}&dateRecon=${encodeURIComponent(dateRecon)}`,
       {
         method: 'GET',
         credentials: 'include',
@@ -405,18 +418,19 @@ export async function viewReconciled(
     return {
       status: 'error',
       message:
-      error.message || 'Unknown error fetching reconciled transactions',
+        error.message || 'Unknown error fetching reconciled transactions',
       matched: [],
       unmatched: [],
-      autoReversals: [],
-      issuerTranascationsAfterCutOff: [],
-      acquirerTranascationsAfterCutOff: [],
+      exceptions: [],
+      usOnOthersAfterCutOff: [],
+      othersOnUsAfterCutOff: [],
       matchedTotal: 0,
       unmatchedTotal: 0,
-      autoReversalsTotal: 0,
+      exceptionsTotal: 0,
     }
   }
 }
+
 
 
 export async function getReports() {
