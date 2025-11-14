@@ -6,21 +6,57 @@ import { Upload, Loader2, FileCheck, Eye } from 'lucide-react'
 import { getLoggedInUser } from '../services/logedUserHelper'
 import { CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import {
-  uploadAcquirerFile,
-  uploadHostFiles,
-  uploadIssuerFile,
+  uploadSAQ,
   ReconcileResponse,
   viewReconciled,
   ViewReconciledResponse,
   FETransaction,
   ReconcileAndSaveReport,
-  uploadIHS,
 } from '../services/api'
+
 interface FormErrors {
   accountNumber?: string
   accountName?: string
   currency?: string
   reconDate?: string
+}
+
+interface ReconciliationSummary {
+  totalIssuerTransactions: number;
+  totalAcquirerTransactions: number;
+  totalMatched: number;
+  totalExceptions: number;
+  totalOthersOnUs: number;
+  totalAmount: number;
+}
+
+interface ReconciliationTransaction {
+  terminalId: string;
+  rrn: string;
+  amount: number;
+  postingDate: string;
+  bin: string;
+  mti: string;
+  narration?: string;
+}
+
+interface ReconciliationResult {
+  message: string;
+  status: "success" | "error";
+  sessionId?: string;
+  timestamp?: string;
+  summary?: ReconciliationSummary;
+  data?: {
+    issuerAfterCutoff: ReconciliationTransaction[];
+    acquirerAfterCutoff: ReconciliationTransaction[];
+    exceptions: ReconciliationTransaction[];
+    othersOnUsFailed: ReconciliationTransaction[];
+    matchedTotal: number;
+    issuerAfterCutoffTotal: number;
+    acquirerAfterCutoffTotal: number;
+    exceptionsTotal: number;
+    othersOnUsFailedTotal: number;
+  };
 }
 
 const FormField = ({
@@ -32,7 +68,7 @@ const FormField = ({
   required = false,
   error = '',
   ...props
-}) => {
+}: any) => {
   const [inputType, setInputType] = useState(type)
 
   const handleFocus = () => {
@@ -41,13 +77,12 @@ const FormField = ({
     }
   }
 
-  const handleBlur = (e) => {
+  const handleBlur = (e: any) => {
     if (type === 'date' && !e.target.value) {
       setInputType('text')
     }
   }
 
-  // Determine styles (same as before)
   const inputClass = `
     w-full p-3 border rounded-lg 
     focus:ring-2 transition duration-150 ease-in-out
@@ -69,11 +104,9 @@ const FormField = ({
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
-        // Use the dynamically determined type
         type={finalInputType}
         value={value}
         onChange={onChange}
-        // Attach the new handlers
         onFocus={handleFocus}
         onBlur={handleBlur}
         className={inputClass}
@@ -88,28 +121,26 @@ const FormField = ({
 }
 
 export default function ReconciliationPage() {
-  const [hostFile, setHostFile] = useState<File | null>(null)
-  const [IHSFile, setIHSFile]= useState<File | null>(null)
   const [issuerFile, setIssuerFile] = useState<File | null>(null)
   const [acquirerFile, setAcquirerFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [result, setResult] = useState<ReconcileResponse | null>(null)
-  const [reconciledData, setReconciledData] =
-    useState<ViewReconciledResponse | null>(null)
+  const [reconciledData, setReconciledData] = useState<ViewReconciledResponse | null>(null)
   const [dragActive, setDragActive] = useState<string | null>(null)
   const [viewType, setViewType] = useState<
-    'matched' | 'exceptions' | 'usOnOthersAfterCutOff' | 'othersOnUsAfterCutOff'
-  >('matched')
+    'matched' | 'exceptions' | 'issuerAfterCutoff' | 'acquirerAfterCutoff' | 'othersOnUsFailed'
+  >('issuerAfterCutoff')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(50)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<any>(null)
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState('')
   const [currency, setCurrency] = useState('')
   const [reconDate, setReconDate] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
-  const allUploaded = hostFile && issuerFile && acquirerFile && IHSFile
+  const [reconciliationResult, setReconciliationResult] = useState<ReconciliationResult | null>(null)
+  const allUploaded = issuerFile && acquirerFile
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -130,25 +161,18 @@ export default function ReconciliationPage() {
       setter(e.dataTransfer.files[0])
   }
 
-  async function handleUpload(host: File, issuer: File, acquirer: File, IHS: File, reconDate: string) {
+  async function handleUpload(issuer: File, acquirer: File) {
     setIsUploading(true)
     try {
-      const hostRes = await uploadHostFiles(host, reconDate)
-      const IHSRes =  await uploadIHS(IHS, reconDate)
-      const issuerRes = await uploadIssuerFile(issuer, reconDate)
-      const acquirerRes = await uploadAcquirerFile(acquirer, reconDate)
-
+      const uploadRes = await uploadSAQ(issuer, acquirer)
       return {
-        host: hostRes,
-        issuer: issuerRes,
-        acquirer: acquirerRes,
-        IHS:IHSRes,
-        message: 'All files uploaded successfully',
+        message: 'Files uploaded successfully',
         status: 'success',
+        data: uploadRes
       }
     } catch (err: any) {
       return {
-        message: err.message || 'Error uploading one or more files',
+        message: err.message || 'Error uploading files',
         status: 'error',
       }
     } finally {
@@ -165,76 +189,119 @@ export default function ReconciliationPage() {
 
   useEffect(() => {
     if (!user) return
-    console.log('this is out user', user)
+    console.log('this is our user', user)
   }, [user])
 
   async function submitFiles() {
-    if (!hostFile || !issuerFile || !acquirerFile || !IHSFile) {
-      alert('Please select all files before uploading')
+    if (!issuerFile || !acquirerFile) {
+      alert('Please select both issuer and acquirer files before uploading')
       return
     }
-
-    const timestamp = new Date().toISOString()
-
-    const result = await handleUpload(hostFile, issuerFile, acquirerFile,IHSFile, timestamp)
 
     if (!validate()) {
       console.error('Account details validation failed.')
       return
     }
 
-    if (result.status === 'success') {
-      alert('All files uploaded!')
+    setIsLoading(true);
+    setReconciliationResult(null);
 
-      //put the values
-      const response = await ReconcileAndSaveReport(
-        user.id,
-        accountNumber,
-        accountName,
-        reconDate,
-        currency,
-        timestamp
+    try {
+      const uploadResult = await handleUpload(issuerFile, acquirerFile)
 
-      )
-      if (response.status === 'success') {
-        await handleViewData(0, timestamp)
+      if (uploadResult.status === 'success') {
+        console.log('Files uploaded successfully! Starting reconciliation...')
+        
+        const reconcileResult = await ReconcileAndSaveReport(
+          user.id,
+          accountNumber,
+          accountName,
+          reconDate,
+          currency,
+        )
+
+        console.log('Reconciliation result:', reconcileResult);
+        
+        if (reconcileResult.status === 'success') {
+          setReconciliationResult(reconcileResult);
+          
+          // Access the parsed data
+          if (reconcileResult.data) {
+            console.log('Issuer after cutoff:', reconcileResult.data.issuerAfterCutoff);
+            console.log('Acquirer after cutoff:', reconcileResult.data.acquirerAfterCutoff);
+            console.log('Exceptions:', reconcileResult.data.exceptions);
+            console.log('Others on us failed:', reconcileResult.data.othersOnUsFailed);
+          }
+        } else {
+          setReconciliationResult({
+            status: "error",
+            message: reconcileResult.message
+          });
+          alert(`Reconciliation failed: ${reconcileResult.message}`);
+        }
+      } else {
+        setReconciliationResult({
+          status: "error",
+          message: uploadResult.message
+        });
+        alert(`Upload failed: ${uploadResult.message}`);
       }
-    } else {
-      alert(result.message)
+    } catch (error: any) {
+      console.error('Error during reconciliation process:', error);
+      setReconciliationResult({
+        status: "error",
+        message: 'An unexpected error occurred during reconciliation'
+      });
+    } finally {
+      setIsLoading(false);
     }
   }
 
-  const handleViewData = async (newPage: number = page, dateRecon: string) => {
-    if (!user) return
-    setIsLoading(true)
-    const data = await viewReconciled(newPage, size, dateRecon )
-    console.log(data)
-    setReconciledData(data)
-    setPage(newPage)
-    setIsLoading(false)
-  }
-
-  const getDataForView = (): FETransaction[] => {
-    if (!reconciledData) return []
+  const getDataForView = (): ReconciliationTransaction[] => {
+    if (!reconciliationResult?.data) return [];
+    
     switch (viewType) {
       case 'matched':
-        return reconciledData.matched || []
+        return []; // You don't have matched data in your current response
       case 'exceptions':
-        return reconciledData.exceptions || []
-      case 'usOnOthersAfterCutOff':
-        return reconciledData.usOnOthersAfterCutOff || []
-      case 'othersOnUsAfterCutOff':
-        return reconciledData.othersOnUsAfterCutOff || []
+        return reconciliationResult.data.exceptions || [];
+      case 'issuerAfterCutoff':
+        return reconciliationResult.data.issuerAfterCutoff || [];
+      case 'acquirerAfterCutoff':
+        return reconciliationResult.data.acquirerAfterCutoff || [];
+      case 'othersOnUsFailed':
+        return reconciliationResult.data.othersOnUsFailed || [];
       default:
-        return []
+        return [];
     }
   }
 
-  const columnsToDisplay: (keyof FETransaction)[] = [
+  const getTotalForView = (): number => {
+    if (!reconciliationResult?.data) return 0;
+    
+    switch (viewType) {
+      case 'matched':
+        return reconciliationResult.data.matchedTotal || 0;
+      case 'exceptions':
+        return reconciliationResult.data.exceptionsTotal || 0;
+      case 'issuerAfterCutoff':
+        return reconciliationResult.data.issuerAfterCutoffTotal || 0;
+      case 'acquirerAfterCutoff':
+        return reconciliationResult.data.acquirerAfterCutoffTotal || 0;
+      case 'othersOnUsFailed':
+        return reconciliationResult.data.othersOnUsFailedTotal || 0;
+      default:
+        return 0;
+    }
+  }
+
+  const columnsToDisplay: (keyof ReconciliationTransaction)[] = [
     'terminalId',
     'rrn',
     'amount',
     'postingDate',
+    'bin',
+    'mti'
   ]
 
   const validate = (): boolean => {
@@ -263,6 +330,17 @@ export default function ReconciliationPage() {
   }
 
   const displayedData = getDataForView()
+  const currentPageData = displayedData.slice(page * size, (page + 1) * size)
+  const totalItems = getTotalForView()
+  const totalPages = Math.ceil(totalItems / size)
+
+  const handlePreviousPage = () => {
+    if (page > 0) setPage(page - 1)
+  }
+
+  const handleNextPage = () => {
+    if (page < totalPages - 1) setPage(page + 1)
+  }
 
   return (
     <div className="h-full min-w-full max-w-7xl mx-auto w-full justify-center p-6">
@@ -272,13 +350,11 @@ export default function ReconciliationPage() {
           Reconcile Reports
         </h1>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Upload the required files and reconcile or view reconciled
-          transactions.
+          Upload the required files and reconcile or view reconciled transactions.
         </p>
       </div>
 
-      {/*report headers section */}
-
+      {/* Report headers section */}
       <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-12 space-y-6">
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
           Account Reconciliation Details
@@ -288,57 +364,52 @@ export default function ReconciliationPage() {
           <FormField
             label="Account Number"
             value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value)}
+            onChange={(e: any) => setAccountNumber(e.target.value)}
             placeholder="e.g. 320200409000924"
             required
+            error={errors.accountNumber}
           />
 
           <FormField
             label="Account Name"
             value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
+            onChange={(e: any) => setAccountName(e.target.value)}
             placeholder="e.g. ZIMSWITCHSUSPENSE"
             required
+            error={errors.accountName}
           />
 
           <FormField
             label="Currency"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onChange={(e: any) => setCurrency(e.target.value)}
             placeholder="e.g. ZWG or USD"
             required
+            error={errors.currency}
           />
 
           <FormField
             label="Reconciliation Date"
             type="date"
             value={reconDate}
-            onChange={(e) => setReconDate(e.target.value)}
-            placeholder="e.g. YYYY-MM-DD" // <-- Now this will show until clicked!
+            onChange={(e: any) => setReconDate(e.target.value)}
+            placeholder="e.g. YYYY-MM-DD"
             required
+            error={errors.reconDate}
           />
         </div>
       </div>
 
       {/* Upload Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <UploadCard
-          file={hostFile}
-          setFile={setHostFile}
+          file={issuerFile}
+          setFile={setIssuerFile}
           dragActive={dragActive}
           setDragActive={setDragActive}
           allUploaded={allUploaded}
-          type="host"
-          label="Essence File"
-        />
-        <UploadCard
-          file={IHSFile}
-          setFile={setIHSFile}
-          dragActive={dragActive}
-          setDragActive={setDragActive}
-          allUploaded={allUploaded}
-          type="IHS"
-          label="IHS File"
+          type="issuer"
+          label="Issuer SAQ Report"
         />
         <UploadCard
           file={acquirerFile}
@@ -349,102 +420,99 @@ export default function ReconciliationPage() {
           type="acquirer"
           label="Acquirer SAQ Report"
         />
-        <UploadCard
-          file={issuerFile}
-          setFile={setIssuerFile}
-          dragActive={dragActive}
-          setDragActive={setDragActive}
-          allUploaded={allUploaded}
-          type="issuer"
-          label="Issuer SAQ Report"
-        />
       </div>
 
-      {/* Action Buttons */}
 
+      {/* Action Buttons */}
       <div className="mt-12 flex flex-wrap gap-4">
-        {/* Reconcile Button */}
         <Button
           onClick={submitFiles}
           size="lg"
-          disabled={!allUploaded || isUploading}
-          aria-busy={isUploading}
+          disabled={!allUploaded || isUploading || isLoading}
+          aria-busy={isUploading || isLoading}
           className="px-10 py-6 text-lg bg-green-700 hover:bg-green-800 disabled:opacity-70"
         >
-          {isUploading ? (
+          {(isUploading || isLoading) ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
             <Upload className="mr-2 h-5 w-5" />
           )}
-          {isUploading ? 'Reconciling, please wait...' : 'Reconcile'}
+          {(isUploading || isLoading) ? 'Uploading and Reconciling...' : 'Upload & Reconcile'}
         </Button>
       </div>
 
-      {/* Table Section */}
-      {reconciledData && (
-        <div className="mt-6 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
-          <div className="mt-4 flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+      {/* Transaction Table Section */}
+      {reconciliationResult?.status === 'success' && reconciliationResult.data && (
+        <div className="mt-8 p-6 border rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
+            Transaction Details
+          </h2>
+          
+          {/* View Type Selector */}
+          <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-700 rounded-xl p-1 mb-6">
             {(
               [
-                'matched',
-
+                'issuerAfterCutoff',
+                'acquirerAfterCutoff',
                 'exceptions',
-                'usOnOthersAfterCutOff',
-                'othersOnUsAfterCutOff',
+                'othersOnUsFailed',
               ] as const
             ).map((type) => (
               <Button
                 key={type}
                 variant={viewType === type ? 'default' : 'outline'}
-                onClick={() => setViewType(type)}
+                onClick={() => {
+                  setViewType(type);
+                  setPage(0); // Reset to first page when changing view type
+                }}
                 className={`px-4 py-2 text-sm font-medium rounded-full flex items-center gap-2 ${
                   viewType === type
                     ? type === 'exceptions'
                       ? 'bg-red-600 text-white hover:bg-red-700'
-                      : type === 'usOnOthersAfterCutOff' ||
-                          type === 'othersOnUsAfterCutOff'
+                      : type === 'othersOnUsFailed'
                         ? 'bg-yellow-400 text-black hover:bg-yellow-600'
-                        : 'bg-green-600 text-white hover:bg-accent'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-transparent text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {type === 'matched' && <CheckCircle className="w-4 h-4" />}
                 {type === 'exceptions' && <AlertCircle className="w-4 h-4" />}
-                {(type === 'usOnOthersAfterCutOff' ||
-                  type === 'othersOnUsAfterCutOff') && (
-                  <Clock className="w-4 h-4" />
+                {type === 'othersOnUsFailed' && <Clock className="w-4 h-4" />}
+                {(type === 'issuerAfterCutoff' || type === 'acquirerAfterCutoff') && (
+                  <Eye className="w-4 h-4" />
                 )}
 
-                {type === 'matched'
-                  ? `Matched (${reconciledData.matchedTotal ?? 0})`
-                  : type === 'exceptions'
-                    ? `Exceptions (${reconciledData.exceptionsTotal ?? 0})`
-                    : type === 'usOnOthersAfterCutOff'
-                      ? `Issuer After Cut-Off (${reconciledData.usOnOthersAfterCutOffTotal ?? 0})`
-                      : `Acquirer After Cut-Off (${reconciledData.othersOnUsAfterCutOffTotal ?? 0})`}
+                {type === 'issuerAfterCutoff'
+                  ? `Issuer After Cut-Off (${reconciliationResult.data?.issuerAfterCutoffTotal || 0})`
+                  : type === 'acquirerAfterCutoff'
+                    ? `Acquirer After Cut-Off (${reconciliationResult.data?.acquirerAfterCutoffTotal || 0})`
+                    : type === 'exceptions'
+                      ? `Exceptions (${reconciliationResult.data?.exceptionsTotal || 0})`
+                      : `Others On Us Failed (${reconciliationResult.data?.othersOnUsFailedTotal || 0})`}
               </Button>
             ))}
           </div>
-          {displayedData.length > 0 ? (
-            <div className="mt-4 border rounded-lg overflow-auto max-h-[500px]">
+
+          {/* Transaction Table */}
+          {currentPageData.length > 0 ? (
+            <div className="border rounded-lg overflow-auto max-h-[600px]">
               <table className="min-w-full border border-gray-300 dark:border-gray-700">
                 <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 border-b">
                       No
                     </th>
                     {columnsToDisplay.map((key) => (
                       <th
                         key={key}
-                        className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200"
+                        className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-200 border-b"
                       >
-                        {key}
+                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedData.map((row, idx) => (
+                  {currentPageData.map((row, idx) => (
                     <tr
                       key={idx}
                       className={
@@ -453,15 +521,18 @@ export default function ReconciliationPage() {
                           : 'bg-gray-50 dark:bg-gray-700'
                       }
                     >
-                      <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 border-b">
                         {page * size + idx + 1}
                       </td>
                       {columnsToDisplay.map((key) => (
                         <td
                           key={key}
-                          className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200"
+                          className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 border-b"
                         >
-                          {row[key]?.toString() || ''}
+                          {key === 'amount' 
+                            ? (row[key]?.toFixed(2) || '0.00')
+                            : (row[key]?.toString() || '-')
+                          }
                         </td>
                       ))}
                     </tr>
@@ -470,46 +541,38 @@ export default function ReconciliationPage() {
               </table>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between mt-4 p-2 bg-gray-100 dark:bg-gray-700 sticky bottom-0">
-                <Button
-                  onClick={() => handleViewData(page - 1)}
-                  disabled={page === 0 || isLoading}
-                  className="bg-gray-200 dark:bg-gray-600"
-                >
-                  Previous
-                </Button>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 p-4 bg-gray-100 dark:bg-gray-700 border-t">
+                  <Button
+                    onClick={handlePreviousPage}
+                    disabled={page === 0}
+                    variant="outline"
+                    className="bg-white dark:bg-gray-600"
+                  >
+                    Previous
+                  </Button>
 
-                <span className="text-gray-700 dark:text-gray-300">
-                  Page {page + 1}
-                </span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Page {page + 1} of {totalPages} 
+                    {` (Showing ${currentPageData.length} of ${totalItems} transactions)`}
+                  </span>
 
-                <Button
-                  onClick={() => handleViewData(page + 1)}
-                  disabled={
-                    isLoading ||
-                    (viewType === 'matched' &&
-                      (page + 1) * size >=
-                        (reconciledData?.matchedTotal ?? 0)) ||
-                    (viewType === 'exceptions' &&
-                      (page + 1) * size >=
-                        (reconciledData?.exceptionsTotal ?? 0)) ||
-                    (viewType === 'usOnOthersAfterCutOff' &&
-                      (page + 1) * size >=
-                        (reconciledData?.usOnOthersAfterCutOffTotal ?? 0)) ||
-                    (viewType === 'othersOnUsAfterCutOff' &&
-                      (page + 1) * size >=
-                        (reconciledData?.othersOnUsAfterCutOffTotal ?? 0))
-                  }
-                  className="bg-gray-200 dark:bg-gray-600"
-                >
-                  Next
-                </Button>
-              </div>
+                  <Button
+                    onClick={handleNextPage}
+                    disabled={page >= totalPages - 1}
+                    variant="outline"
+                    className="bg-white dark:bg-gray-600"
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
-            <p className="mt-4 text-gray-500 dark:text-gray-400">
-              No {viewType} transactions to display.
-            </p>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No {viewType} transactions to display.</p>
+            </div>
           )}
         </div>
       )}

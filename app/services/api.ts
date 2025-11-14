@@ -208,13 +208,12 @@ export async function logout() {
 
 
 
-
-
-// Upload FE (Host) file
-export async function uploadHostFiles(file: File, reconDate: string) {
+export async function uploadSAQ(issuer: File, acquirer: File) {
   const formData = new FormData()
-  formData.append('file', file)
-  formData.append('reconDate', reconDate) // <-- add reconDate
+  formData.append('issuer', issuer)
+  formData.append('acquirer', acquirer) 
+
+  console.log("called IHS file")
 
   const res = await apiClient(`${TRANSACTION_API_BASE}/upload`, {
     method: 'POST',
@@ -225,49 +224,9 @@ export async function uploadHostFiles(file: File, reconDate: string) {
   return res
 }
 
-export async function uploadIHS(file: File, reconDate: string) {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('reconDate', reconDate) // <-- add reconDate
 
-  console.log("called IHS file")
 
-  const res = await apiClient(`${TRANSACTION_API_BASE}/IHS`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  })
 
-  return res
-}
-
-export async function uploadIssuerFile(file: File, reconDate: string) {
-  const formData = new FormData()
-  formData.append('issuerFile', file)
-  formData.append('reconDate', reconDate) 
-
-  const res = await apiClient(`${TRANSACTION_API_BASE}/upload/issuer`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  })
-
-  return res
-}
-
-export async function uploadAcquirerFile(file: File, reconDate: string) {
-  const formData = new FormData()
-  formData.append('acquirerFile', file)
-  formData.append('reconDate', reconDate) 
-
-  const res = await apiClient(`${TRANSACTION_API_BASE}/upload/acquirer`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  })
-
-  return res
-}
 
 export interface ReconSummary {
   totalTransactions: number
@@ -281,20 +240,7 @@ export interface ReconcileResponse {
   summary?: ReconSummary
 }
 
-// Reconcile function
-export async function reconcile(): Promise<ReconcileResponse> {
-  // apiClient handles the token and refresh logic
-  const data: ReconcileResponse = await apiClient(
-    `${TRANSACTION_API_BASE}/reconcile`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, // Needs Content-Type as no body is sent
-      credentials: 'include',
-    }
-  )
 
-  return data
-}
 
 export async function downloadCSV() {
   const token = getAuthToken()
@@ -362,41 +308,158 @@ export interface ViewReconciledResponse {
 }
 
 
+// Base types
+export interface ReconciliationSummary {
+  totalIssuerTransactions: number;
+  totalAcquirerTransactions: number;
+  totalMatched: number;
+  totalExceptions: number;
+  totalOthersOnUs: number;
+  totalAmount: number;
+}
+
+export interface BackendTransaction {
+  terminalId: string;
+  rrn: string;
+  amount: number;
+  postingDate: string;
+  bin: string;
+  mti: string;
+  narration?: string;
+}
+
+export interface ReconciliationResultData {
+  issuerAfterCutoff: BackendTransaction[];
+  acquirerAfterCutoff: BackendTransaction[];
+  exceptions: BackendTransaction[];
+  othersOnUsFailed: BackendTransaction[];
+
+  matchedTotal: number;
+  issuerAfterCutoffTotal: number;
+  acquirerAfterCutoffTotal: number;
+  exceptionsTotal: number;
+  othersOnUsFailedTotal: number;
+}
+
+// Response types
+export interface ReconcileSuccessResponse {
+  message: string;
+  status: "success";
+  sessionId: string;
+  timestamp: string;
+  summary: ReconciliationSummary;
+  data?: ReconciliationResultData;
+}
+
+export interface ReconcileErrorResponse {
+  message: string;
+  status: "error";
+}
+
+// Backend response interface (what your Spring backend actually returns)
+export interface BackendReconciliationResponse {
+  id: number;
+  sessionId: string;
+  reconDateTime: string;
+  accountNumber: string;
+  accountName: string;
+  currency: string;
+  resultData: string; // JSON string that needs parsing
+  createdAt: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    role: {
+      id: number;
+      name: string;
+      description: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+  };
+}
+
+// Updated function with proper typing
 export async function ReconcileAndSaveReport(
   userId: number,
   accountNumber: string,
   accountName: string,
   reconDate: string,
   currency: string,
-  dateRecon: string
- 
-) {
+): Promise<ReconcileSuccessResponse | ReconcileErrorResponse> {
   try {
-    const formData = new FormData();
-    formData.append("accountNumber", accountNumber);
-    formData.append("accountName", accountName);
-     formData.append("reconDate", reconDate);
-    formData.append("currency", currency);
-    formData.append("dateRecon", dateRecon) 
-   
+    const requestBody = {
+      accountNumber,
+      accountName,
+      reconDate,
+      currency,
+      timeStamp: new Date().toISOString(),
+    };
 
-    const response = await apiClient(
+    console.log('Sending reconciliation request:', requestBody);
+
+    const response = await apiClient<BackendReconciliationResponse>(
       `${TRANSACTION_API_BASE}/reconcile/${userId}`,
       {
         method: "POST",
         credentials: "include",
-        body: formData, // send as multipart/form-data
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       }
     );
 
-    return response;
+    console.log('Raw backend response:', response);
+
+    // Parse the resultData from string to ReconciliationResultData
+    let parsedResultData: ReconciliationResultData | undefined;
+    
+    if (response.resultData) {
+      try {
+        parsedResultData = typeof response.resultData === 'string' 
+          ? JSON.parse(response.resultData)
+          : response.resultData;
+        
+        console.log('Parsed result data:', parsedResultData);
+      } catch (parseError) {
+        console.error('Error parsing resultData:', parseError);
+        return {
+          status: "error",
+          message: "Failed to parse reconciliation data"
+        };
+      }
+    }
+
+    // Transform to the expected frontend response format
+    const successResponse: ReconcileSuccessResponse = {
+      message: "Reconciliation completed successfully",
+      status: "success",
+      sessionId: response.sessionId,
+      timestamp: response.reconDateTime,
+      summary: {
+        totalIssuerTransactions: parsedResultData?.issuerAfterCutoffTotal || 0,
+        totalAcquirerTransactions: parsedResultData?.acquirerAfterCutoffTotal || 0,
+        totalMatched: parsedResultData?.matchedTotal || 0,
+        totalExceptions: parsedResultData?.exceptionsTotal || 0,
+        totalOthersOnUs: parsedResultData?.othersOnUsFailedTotal || 0,
+        totalAmount: 0 // You might need to calculate this from the transactions
+      },
+      data: parsedResultData
+    };
+
+    return successResponse;
+
   } catch (error: any) {
+    console.error('Reconciliation API error:', error);
     return {
       status: "error",
       message: error.message || "Unknown error during reconciliation",
     };
   }
 }
+
 
 
 export async function viewReconciled(
