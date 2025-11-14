@@ -423,7 +423,7 @@ export default function ReconciliationPage() {
       </div>
 
 
-      {/* Action Buttons */}
+     
       <div className="mt-12 flex flex-wrap gap-4">
         <Button
           onClick={submitFiles}
@@ -441,7 +441,7 @@ export default function ReconciliationPage() {
         </Button>
       </div>
 
-      {/* Transaction Table Section */}
+     
       {reconciliationResult?.status === 'success' && reconciliationResult.data && (
         <div className="mt-8 p-6 border rounded-lg bg-white dark:bg-gray-800 shadow-sm">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
@@ -471,7 +471,7 @@ export default function ReconciliationPage() {
                       ? 'bg-red-600 text-white hover:bg-red-700'
                       : type === 'othersOnUsFailed'
                         ? 'bg-yellow-400 text-black hover:bg-yellow-600'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-transparent text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
